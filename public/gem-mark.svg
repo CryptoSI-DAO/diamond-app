@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#4da3ff" stroke-width="1.8" stroke-linejoin="round">
+  <!-- outer shield -->
+  <path d="M16 2 L29 8 V16 C29 23 23.5 28 16 30 C8.5 28 3 23 3 16 V8 Z" opacity="0.85"/>
+  <!-- faceted gem -->
+  <path d="M16 9 L22 14 L16 23 L10 14 Z" fill="#4da3ff" fill-opacity="0.25"/>
+  <path d="M16 9 L22 14 L16 23 L10 14 Z"/>
+  <path d="M10 14 H22" opacity="0.7"/>
+  <path d="M16 9 L13.5 14 L16 23" opacity="0.5"/>
+  <path d="M16 9 L18.5 14 L16 23" opacity="0.5"/>
+</svg>

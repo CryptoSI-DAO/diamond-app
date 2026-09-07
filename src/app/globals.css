@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+@theme {
+  /* Glacial Vault (Stitch DESIGN.md, adapted) */
+  --color-surface: #011526;
+  --color-surface-dim: #000f1e;
+  --color-card: #081d2e;
+  --color-card-2: #0d2132;
+  --color-card-3: #192b3d;
+  --color-line: #243649;
+  --color-ink: #d1e4fc;
+  --color-ink-dim: #c0c7d4;
+  --color-ink-faint: #8a919d;
+  --color-ice: #4da3ff;
+  --color-ice-soft: #a2c9ff;
+  --color-ice-deep: #00315b;
+  --color-danger: #ffb4ab;
+  --color-danger-deep: #93000a;
+  --color-fee: #ffb547;
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(1100px 500px at 75% -10%, rgba(77, 163, 255, 0.09), transparent 55%),
+    var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+/* ── primitives ─────────────────────────────────────────────── */
+
+.card {
+  background: var(--color-card);
+  border: 1px solid color-mix(in srgb, var(--color-line) 55%, transparent);
+  border-radius: 20px;
+}
+
+.card-inner {
+  background: var(--color-card-2);
+  border: 1px solid color-mix(in srgb, var(--color-line) 45%, transparent);
+  border-radius: 14px;
+}
+
+.label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+  font-weight: 600;
+}
+
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.btn-primary {
+  background: var(--color-ice);
+  color: #04182e;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  transition: all 160ms ease-out;
+  box-shadow: 0 0 24px rgba(77, 163, 255, 0.25);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-ice-soft);
+  box-shadow: 0 0 34px rgba(77, 163, 255, 0.4);
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+}
+
+.btn-ghost {
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  color: var(--color-ink-dim);
+  transition: all 160ms ease-out;
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--color-ink);
+  border-color: var(--color-ice);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-line) 70%, transparent);
+  background: var(--color-card-2);
+  font-size: 12px;
+  padding: 6px 12px;
+  color: var(--color-ink-dim);
+}
+
+input[type="range"] {
+  accent-color: var(--color-ice);
+}
+
+/* diamond confetti */
+@keyframes diamond-fall {
+  0% { transform: translateY(-12vh) rotate(0deg); opacity: 0; }
+  12% { opacity: 1; }
+  100% { transform: translateY(112vh) rotate(320deg); opacity: 0; }
+}
+.diamond {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  background: var(--color-ice);
+  transform: rotate(45deg);
+  border-radius: 2px;
+  animation: diamond-fall linear infinite;
+  opacity: 0;
+}
