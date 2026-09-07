@@ -116,7 +116,7 @@ export function TxModal({
           <>
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-ice/40 bg-ice/10">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/gem-mark.svg" alt="" className="h-9 w-9" />
+              <img src="/logo-gem-192.png" alt="" className="h-10 w-10 rounded-lg" />
             </div>
             <div className="font-display mt-4 text-2xl font-bold">
               {headline ?? "Diamond Hands Confirmed"}

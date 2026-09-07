@@ -9,7 +9,10 @@ const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-space-grot
 export const metadata: Metadata = {
   title: "Diamond Hands Protocol — App",
   description: "Immutable conviction vaults on Base. Paper hands fund diamond hands.",
-  icons: { icon: "/gem-mark.svg" },
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }, { url: "/logo-gem-192.png", type: "image/png", sizes: "192x192" }],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

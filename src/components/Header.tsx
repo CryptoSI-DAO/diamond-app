@@ -38,7 +38,7 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4">
         <Link href="/" className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/gem-mark.svg" alt="" className="h-7 w-7" />
+          <img src="/logo-gem-192.png" alt="Diamond Hands Protocol" className="h-8 w-8 rounded-lg" />
           <span className="font-display text-sm font-bold tracking-[0.18em] uppercase md:text-base">
             Diamond Hands
           </span>
