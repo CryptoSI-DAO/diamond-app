@@ -16,7 +16,6 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 
 export default function ExplorePage() {
   const { vaults, loading, configured } = useVaultList();
-
   const totalTvl = vaults.reduce((s, v) => s + v.totalAssets, 0n);
 
   return (
@@ -35,8 +34,8 @@ export default function ExplorePage() {
 
         {/* global stats */}
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Stat label="Vaults deployed" value={String(vaults.length)} />
-          <Stat label="Total value locked" value={loading ? "—" : `${fmtUnits(totalTvl, 18, 2)} ∑`} />
+          <Stat label="Vaults deployed" value={configured ? String(vaults.length) : "—"} />
+          <Stat label="Total value locked" value={configured && !loading ? `${fmtUnits(totalTvl, 18, 2)} ∑` : "—"} />
           <Stat label="Security level" value="Zero-key" accent />
         </div>
 
