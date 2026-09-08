@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { decodeEventLog } from "viem";
 import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import {
@@ -66,6 +67,7 @@ export default function CreatePage() {
   const [fot, setFot] = useState(false);
   const [phase, setPhase] = useState<TxPhase>("idle");
   const [err, setErr] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [deployed, setDeployed] = useState<`0x${string}` | null>(null);
 
   // token probe
@@ -113,6 +115,8 @@ export default function CreatePage() {
     if (!configured || !isAddr(token)) return;
     setPhase("confirming");
     setErr(null);
+    setTxHash(null);
+    setDeployed(null);
     w.writeContract(
       {
         address: factory,
@@ -122,9 +126,11 @@ export default function CreatePage() {
         value: BigInt(Math.round(Number(CREATION_FEE_ETH) * 1e18)),
       },
       {
-        onSuccess: async (vaultAddr: unknown) => {
+        onSuccess: (hash: `0x${string}`) => {
+          // writeContract resolves with the TX HASH, not the return value —
+          // the vault address comes from the VaultCreated event in the receipt.
           setPhase("pending");
-          setDeployed(vaultAddr as `0x${string}`);
+          setTxHash(hash);
         },
         onError: (e: unknown) => {
           setPhase("error");
@@ -134,26 +140,50 @@ export default function CreatePage() {
     );
   }
 
-  // receipt watch → success
+  // receipt watch → success. Runs as soon as the tx is broadcast; `deployed`
+  // (vault address) is parsed from the VaultCreated event in the logs.
   useEffect(() => {
-    if (!w.data || !pc || deployed) return;
+    if (!txHash || !pc || deployed) return;
     let alive = true;
     (async () => {
       try {
-        const r = await pc.waitForTransactionReceipt({ hash: w.data! });
+        const r = await pc.waitForTransactionReceipt({
+          hash: txHash,
+          timeout: 180_000, // Sepolia re-orgs/dropped txs shouldn't spin forever
+        });
         if (!alive) return;
-        if (r.status === "success") {
-          setPhase("success");
-        } else {
+        if (r.status !== "success") {
           setPhase("error");
           setErr("Transaction reverted on-chain.");
+          return;
         }
+        // VaultCreated(token indexed, vault indexed, entry, exit, divShare)
+        let vault: `0x${string}` | null = null;
+        for (const log of r.logs) {
+          try {
+            const ev = decodeEventLog({ abi: factoryAbi, data: log.data, topics: log.topics });
+            if (ev.eventName === "VaultCreated") {
+              vault = (ev.args as { vault: `0x${string}` }).vault;
+              break;
+            }
+          } catch { /* unrelated log — skip */ }
+        }
+        if (!vault) {
+          setPhase("error");
+          setErr("Vault created but address could not be read from the receipt.");
+          return;
+        }
+        setDeployed(vault);
+        setPhase("success");
       } catch {
-        /* user navigated away or timeout */
+        if (alive) {
+          setPhase("error");
+          setErr("Timed out waiting for confirmation. Check the explorer — do NOT resend blindly.");
+        }
       }
     })();
     return () => { alive = false; };
-  }, [w.data, pc, deployed]);
+  }, [txHash, pc, deployed]);
 
   const steps = ["Token", "Config", "Confirm"];
 
@@ -307,7 +337,7 @@ export default function CreatePage() {
 
       <TxModal
         phase={phase}
-        hash={w.data}
+        hash={txHash ?? undefined}
         headline={phase === "success" ? "Vault deployed" : undefined}
         bigNumber={phase === "success" ? "0 admin" : undefined}
         bigUnit={phase === "success" ? "keys" : undefined}
