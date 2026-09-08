@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { Header, Footer } from "@/components/Header";
 import { useVaultList } from "@/lib/useVaultList";
-import { fmtPct, fmtUnits } from "@/lib/format";
+import { fmtPct, fmtUnits, shortAddr } from "@/lib/format";
+import {
+  useBalance, useChainId, useSwitchChain,
+} from "wagmi";
+import {
+  BASE_SEPOLIA_ID, CREATION_FEE_ETH, FACTORY, FEE_COLLECTOR, IMPLEMENTATION,
+} from "@/lib/addresses";
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
@@ -17,6 +23,21 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 export default function ExplorePage() {
   const { vaults, loading, configured } = useVaultList();
   const totalTvl = vaults.reduce((s, v) => s + v.totalAssets, 0n);
+
+  // ── Protocol panel state (independent of wallet connection) ──────────────
+  const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+  const onSepolia = chainId === BASE_SEPOLIA_ID;
+  const sepoliaFactory = FACTORY[BASE_SEPOLIA_ID];
+
+  // creation fee Treasury balance = protocol fees earned to date
+  const feeBalance = useBalance({
+    address: FEE_COLLECTOR[BASE_SEPOLIA_ID],
+    chainId: BASE_SEPOLIA_ID,
+  });
+  const feeEth = feeBalance.data
+    ? (Number(feeBalance.data.value) / 1e18).toFixed(3)
+    : null;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -39,21 +60,78 @@ export default function ExplorePage() {
           <Stat label="Security level" value="Zero-key" accent />
         </div>
 
-        {/* grid */}
-        {!configured && (
-          <div className="card mt-8 p-8 text-center">
-            <div className="font-display text-lg font-semibold">Contracts not wired yet</div>
-            <p className="mx-auto mt-2 max-w-md text-sm text-ink-dim">
-              Awaiting the v1.2.2 redeploy to Base Sepolia. Addresses land in{" "}
-              <code className="text-ice">src/lib/addresses.ts</code> — the UI is live
-              and will read the chain the moment they&apos;re set.
-            </p>
-            <Link href="/create" className="btn-primary mt-5 inline-block px-6 py-2.5 text-sm">
-              Deploy a vault →
-            </Link>
+        {/* protocol status panel — live contract facts, works without a wallet */}
+        <section className="card mt-8 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="font-display text-lg font-semibold">Protocol status</div>
+            <span className="pill !text-[10px] text-ice">
+              {onSepolia ? "TESTNET — BASE SEPOLIA" : "READ-ONLY — CONNECT TO SEPOLIA"}
+            </span>
           </div>
-        )}
 
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="card-inner px-4 py-3">
+              <div className="label">Factory</div>
+              <a
+                href={`https://sepolia.basescan.org/address/${sepoliaFactory}`}
+                target="_blank"
+                rel="noreferrer"
+                className="num mt-1 block text-sm text-ice hover:underline"
+              >
+                {shortAddr(sepoliaFactory)} ↗
+              </a>
+            </div>
+            <div className="card-inner px-4 py-3">
+              <div className="label">Vaults deployed</div>
+              <div className="num mt-1 text-lg font-bold">
+                {configured ? String(vaults.length) : "—"}
+              </div>
+            </div>
+            <div className="card-inner px-4 py-3">
+              <div className="label">Creation fee</div>
+              <div className="num mt-1 text-lg font-bold">{CREATION_FEE_ETH} ETH</div>
+            </div>
+            <div className="card-inner px-4 py-3">
+              <div className="label">Protocol fees earned</div>
+              <div className="num mt-1 text-lg font-bold">
+                {feeEth !== null ? `${feeEth} ETH` : "—"}
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs leading-relaxed text-ink-faint">
+            v1.2.2 · five sequential self-audits, 70/70 tests passing, Sourcify
+            exact-match · implementation{" "}
+            <a
+              href={`https://sepolia.basescan.org/address/${IMPLEMENTATION[BASE_SEPOLIA_ID]}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-ice hover:underline"
+            >
+              {shortAddr(IMPLEMENTATION[BASE_SEPOLIA_ID])} ↗
+            </a>{" "}
+            · fee collector{" "}
+            <a
+              href={`https://sepolia.basescan.org/address/${FEE_COLLECTOR[BASE_SEPOLIA_ID]}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-ice hover:underline"
+            >
+              {shortAddr(FEE_COLLECTOR[BASE_SEPOLIA_ID])} ↗
+            </a>
+          </p>
+
+          {!onSepolia && (
+            <button
+              onClick={() => switchChain({ chainId: BASE_SEPOLIA_ID })}
+              className="btn-primary mt-4 px-5 py-2 text-sm"
+            >
+              Switch to Base Sepolia
+            </button>
+          )}
+        </section>
+
+        {/* grid */}
         {configured && loading && (
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (

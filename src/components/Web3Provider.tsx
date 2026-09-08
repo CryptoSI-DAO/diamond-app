@@ -7,10 +7,10 @@ import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 
 const config = createConfig(
   getDefaultConfig({
-    chains: [base, baseSepolia],
+    chains: [baseSepolia, base], // testnet-first until mainnet audit clears
     transports: {
-      [base.id]: http(),
       [baseSepolia.id]: http("https://sepolia.base.org"),
+      [base.id]: http(),
     },
     walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_ID ?? "0",
     appName: "Diamond Hands Protocol",
