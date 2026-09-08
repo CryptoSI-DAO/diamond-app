@@ -8,7 +8,7 @@ import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
   useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
 } from "wagmi";
-import { parseAbiItem } from "viem";
+import { parseAbiItem, decodeEventLog } from "viem";
 import { erc20Abi, vaultAbi } from "@/lib/abis";
 import { errorToCopy } from "@/lib/errors";
 import { fmtPct, fmtUnits, parseUnits, shortAddr } from "@/lib/format";
@@ -171,43 +171,24 @@ export default function VaultPage() {
   function go() {
     if (!user || !valid) return;
     setPhase("confirming");
-    const onSuccess = (h: `0x${string}`) => {
+    setModal({});
+    const onSuccess = () => {
+      // writeContract resolves on broadcast — real numbers are decoded from
+      // the receipt logs in the rct effect below
       setPhase("pending");
-      if (needsApprove && tab === "deposit") {
-        setModal({ headline: undefined });
-      }
-      void h;
     };
     try {
       if (needsApprove) {
-        w.writeContract({ address: assetAddr!, abi: erc20Abi, functionName: "approve", args: [addr, amt] }, { onSuccess: onSuccess as never });
+        w.writeContract({ address: assetAddr!, abi: erc20Abi, functionName: "approve", args: [addr, amt] }, { onSuccess } as never);
       } else if (tab === "deposit") {
         w.writeContract(
           { address: addr, abi: vaultAbi, functionName: "deposit", args: [amt, user] },
-          {
-            onSuccess: (shares: unknown) => {
-              setModal({
-                headline: "Diamond Hands Confirmed",
-                big: fmtUnits(shares as bigint, 18, 2),
-                unit: "shares",
-                rows: [["Ingress tax", fmtPct(entryBps)], ["Paid to the pool", fmtPct(divBps)]],
-              });
-            },
-          } as never
+          { onSuccess } as never
         );
       } else {
         w.writeContract(
           { address: addr, abi: vaultAbi, functionName: "redeem", args: [amt, user, user] },
-          {
-            onSuccess: (assets: unknown) => {
-              setModal({
-                headline: "Exit confirmed",
-                big: fmtUnits(assets as bigint, dec, 4),
-                unit: symbol,
-                rows: [["Exit friction", fmtPct(exitBps)], ["The diamonds thank you", "🔥"]],
-              });
-            },
-          } as never
+          { onSuccess } as never
         );
       }
     } catch {
@@ -223,17 +204,42 @@ export default function VaultPage() {
     } else if (rct.error) {
       setPhase("error");
       setModal({ error: errorToCopy(rct.error) });
-    } else if (rct.isSuccess) {
+    } else if (rct.isSuccess && rct.data) {
       if (needsApprove) {
         setPhase("idle"); // approved; user clicks deposit again
-      } else if (!modal.big) {
-        setPhase("success");
-      } else {
-        setPhase("success");
+        return;
       }
+      // decode the real event from receipt logs — writeContract only ever
+      // hands back the tx hash, never the function's return value
+      let headline = "Diamond Hands Confirmed";
+      let big: string | undefined;
+      let unit: string | undefined;
+      let rows: [string, string][] | undefined;
+      for (const log of rct.data.logs) {
+        try {
+          const ev = decodeEventLog({ abi: vaultAbi, data: log.data, topics: log.topics });
+          if (ev.eventName === "Deposit") {
+            const a = ev.args as unknown as { assets: bigint; shares: bigint };
+            big = fmtUnits(a.shares, 18, 2);
+            unit = "shares";
+            rows = [["Ingress tax", fmtPct(entryBps)], ["Paid to the pool", fmtPct(divBps)]];
+            break;
+          }
+          if (ev.eventName === "Withdraw") {
+            const a = ev.args as unknown as { assets: bigint };
+            headline = "Exit confirmed";
+            big = fmtUnits(a.assets, dec, 4);
+            unit = symbol;
+            rows = [["Exit friction", fmtPct(exitBps)], ["The diamonds thank you", "🔥"]];
+            break;
+          }
+        } catch { /* unrelated log — skip */ }
+      }
+      setModal({ headline, big, unit, rows });
+      setPhase("success");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [w.error, rct.error, rct.isSuccess, w.data]);
+  }, [w.error, rct.error, rct.isSuccess, rct.data]);
 
   function doClaim() {
     if (!user) return;
