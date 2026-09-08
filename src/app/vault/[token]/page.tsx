@@ -9,6 +9,7 @@ import {
   useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
 } from "wagmi";
 import { parseAbiItem, decodeEventLog } from "viem";
+import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, vaultAbi } from "@/lib/abis";
 import { errorToCopy } from "@/lib/errors";
 import { fmtPct, fmtUnits, parseUnits, shortAddr } from "@/lib/format";
@@ -41,6 +42,7 @@ export default function VaultPage() {
   const [amount, setAmount] = useState("");
   const [minOut, setMinOut] = useState("");
   const [phase, setPhase] = useState<TxPhase>("idle");
+  const [lastAction, setLastAction] = useState<"approve" | "deposit" | "redeem" | "withdraw" | null>(null);
   const [modal, setModal] = useState<{ headline?: string; big?: string; unit?: string; rows?: [string, string][]; error?: string }>({});
   const [stream, setStream] = useState<StreamItem[]>([]);
 
@@ -152,8 +154,19 @@ export default function VaultPage() {
   const rct = useWaitForSafe(w.data);
   const claim = useWriteContract();
   const claimRct = useWaitForSafe(claim.data);
+  const qc = useQueryClient();
+
+  // auto-refresh: any landing tx invalidates every read so balances, shares,
+  // dividends and allowance all snap to chain truth without a manual reload
+  useEffect(() => {
+    if (rct.isSuccess || claimRct.isSuccess) {
+      qc.invalidateQueries();
+    }
+  }, [rct.isSuccess, claimRct.isSuccess, qc]);
 
   const needsApprove = tab === "deposit" && allowance < amt;
+  const needsApprovalFresh =
+    lastAction === "approve" && !needsApprove && amt > 0n;
 
   const bd = useMemo(() => {
     if (!valid) return null;
@@ -172,6 +185,7 @@ export default function VaultPage() {
     if (!user || !valid) return;
     setPhase("confirming");
     setModal({});
+    setLastAction(needsApprove ? "approve" : tab);
     const onSuccess = () => {
       // writeContract resolves on broadcast — real numbers are decoded from
       // the receipt logs in the rct effect below
@@ -224,8 +238,8 @@ export default function VaultPage() {
       setPhase("error");
       setModal({ error: errorToCopy(rct.error) });
     } else if (rct.isSuccess && rct.data) {
-      if (needsApprove) {
-        setPhase("idle"); // approved; user clicks deposit again
+      if (lastAction === "approve") {
+        setPhase("idle"); // approved; deposit is next, reads already invalidated
         return;
       }
       // decode the real event from receipt logs — writeContract only ever
@@ -256,6 +270,14 @@ export default function VaultPage() {
       }
       setModal({ headline, big, unit, rows });
       setPhase("success");
+      // land back on the refreshed vault — invalidateQueries() has already
+      // refetched every position read, so close the modal after a beat
+      setTimeout(() => {
+        setPhase("idle");
+        setModal({});
+        setAmount("");
+        setLastAction(null);
+      }, 2600);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [w.error, rct.error, rct.isSuccess, rct.data]);
@@ -382,11 +404,33 @@ export default function VaultPage() {
                 : busy
                 ? "Working…"
                 : needsApprove
-                ? `Approve ${symbol}`
+                ? `Step 1/2 · Approve ${symbol}`
                 : tab === "deposit"
-                ? `Deposit ${symbol} & mint shares →`
-                : "Redeem shares →"}
+                ? needsApprovalFresh
+                  ? `Step 2/2 · Deposit ${fmtUnits(amt, dec, 2)} ${symbol} →`
+                  : `Deposit ${fmtUnits(amt, dec, 2)} ${symbol} →`
+                : `Step 1/1 · Redeem ${fmtUnits(amt, 18, 2)} shares →`}
             </button>
+            {needsApprove && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-line/50 bg-surface-dim px-4 py-3 text-xs text-ink-dim">
+                <span className="text-ice">①</span>
+                <span>
+                  Two signatures ahead. <b>1.</b> Approve the vault to pull your{" "}
+                  {symbol} (ERC-20 standard, no fee leaves your wallet).{" "}
+                  <b>2.</b> Deposit — automatically offered right after. This
+                  prompt appears once per token.
+                </span>
+              </div>
+            )}
+            {!needsApprove && tab === "deposit" && needsApprovalFresh && (
+              <div className="mt-3 flex items-start gap-2 rounded-xl border border-line/50 bg-surface-dim px-4 py-3 text-xs text-ink-dim">
+                <span className="text-ice">②</span>
+                <span>
+                  {symbol} approval confirmed — the deposit is the final
+                  signature and moves your tokens into the vault.
+                </span>
+              </div>
+            )}
             <div className="mt-3 text-center text-[11px] tracking-wider text-ink-faint uppercase">
               Simulation runs before every signature
             </div>
