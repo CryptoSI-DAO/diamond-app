@@ -43,6 +43,10 @@ export default function VaultPage() {
   const [minOut, setMinOut] = useState("");
   const [phase, setPhase] = useState<TxPhase>("idle");
   const [lastAction, setLastAction] = useState<"approve" | "deposit" | "redeem" | "withdraw" | null>(null);
+  // optimistic: set the moment an approve receipt lands, cleared when the
+  // amount changes — stops the button from re-asking while the allowance
+  // read is still catching up
+  const [approvedOverride, setApprovedOverride] = useState(false);
   const [modal, setModal] = useState<{ headline?: string; big?: string; unit?: string; rows?: [string, string][]; error?: string }>({});
   const [stream, setStream] = useState<StreamItem[]>([]);
 
@@ -164,7 +168,7 @@ export default function VaultPage() {
     }
   }, [rct.isSuccess, claimRct.isSuccess, qc]);
 
-  const needsApprove = tab === "deposit" && allowance < amt;
+  const needsApprove = tab === "deposit" && !approvedOverride && allowance < amt;
   const needsApprovalFresh =
     lastAction === "approve" && !needsApprove && amt > 0n;
 
@@ -239,7 +243,8 @@ export default function VaultPage() {
       setModal({ error: errorToCopy(rct.error) });
     } else if (rct.isSuccess && rct.data) {
       if (lastAction === "approve") {
-        setPhase("idle"); // approved; deposit is next, reads already invalidated
+        setApprovedOverride(true); // receipt IS proof — don't wait for the read
+        setPhase("idle"); // deposit is next, reads already invalidated
         return;
       }
       // decode the real event from receipt logs — writeContract only ever
@@ -277,6 +282,7 @@ export default function VaultPage() {
         setModal({});
         setAmount("");
         setLastAction(null);
+        setApprovedOverride(false);
       }, 2600);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -326,7 +332,7 @@ export default function VaultPage() {
               {(["deposit", "withdraw"] as const).map((t) => (
                 <button
                   key={t}
-                  onClick={() => { setTab(t); setAmount(""); }}
+                  onClick={() => { setTab(t); setAmount(""); setApprovedOverride(false); }}
                   className={`flex-1 rounded-full py-2.5 transition ${
                     tab === t ? "bg-ice text-[#04182e]" : "text-ink-faint hover:text-ink"
                   }`}
@@ -345,7 +351,7 @@ export default function VaultPage() {
             <div className="card-inner mt-2 flex items-center gap-3 px-5 py-4">
               <input
                 value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                onChange={(e) => { setAmount(e.target.value.replace(/[^0-9.]/g, "")); setApprovedOverride(false); }}
                 placeholder="0.0"
                 className="num w-full bg-transparent text-3xl font-bold outline-none"
               />
