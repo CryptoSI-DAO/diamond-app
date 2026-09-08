@@ -177,19 +177,38 @@ export default function VaultPage() {
       // the receipt logs in the rct effect below
       setPhase("pending");
     };
+    const onError = (e: unknown) => {
+      setPhase("error");
+      setModal({ error: errorToCopy(e) });
+    };
+    // Explicit gas ceiling: some wallet RPC configs return wild estimates and
+    // the public endpoint rejects them with "exceeds max transaction gas limit".
+    // Estimating ourselves against our own transport keeps the tx sane.
+    const withGas = (call: Record<string, unknown>) => {
+      void (async () => {
+        let gas: bigint | undefined;
+        try {
+          gas = await pc!.estimateContractGas({
+          ...call,
+          account: user,
+        } as never);
+          gas = (gas * 120n) / 100n; // +20% headroom
+        } catch {
+          /* leave undefined — wallet falls back to its own estimate */
+        }
+        w.writeContract(
+          { ...call, ...(gas ? { gas } : {}) } as never,
+          { onSuccess, onError } as never
+        );
+      })();
+    };
     try {
       if (needsApprove) {
-        w.writeContract({ address: assetAddr!, abi: erc20Abi, functionName: "approve", args: [addr, amt] }, { onSuccess } as never);
+        void withGas({ address: assetAddr!, abi: erc20Abi, functionName: "approve", args: [addr, amt] } as never);
       } else if (tab === "deposit") {
-        w.writeContract(
-          { address: addr, abi: vaultAbi, functionName: "deposit", args: [amt, user] },
-          { onSuccess } as never
-        );
+        void withGas({ address: addr, abi: vaultAbi, functionName: "deposit", args: [amt, user] } as never);
       } else {
-        w.writeContract(
-          { address: addr, abi: vaultAbi, functionName: "redeem", args: [amt, user, user] },
-          { onSuccess } as never
-        );
+        void withGas({ address: addr, abi: vaultAbi, functionName: "redeem", args: [amt, user, user] } as never);
       }
     } catch {
       setPhase("error");
