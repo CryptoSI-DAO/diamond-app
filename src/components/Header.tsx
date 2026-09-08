@@ -6,14 +6,16 @@ import { ConnectKitButton } from "connectkit";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID } from "@/lib/addresses";
 
+const ETHEREUM_SEPOLIA_ID = 11155111;
+
 function ChainSwitcher() {
   const chainId = useChainId();
   const { isConnected } = useAccount();
   const { switchChain } = useSwitchChain();
   if (!isConnected) return null;
 
-  // contracts only exist on Sepolia until the audit clears — every other
-  // chain (incl. Base mainnet) gets an active switch prompt
+  // contracts only exist on Base Sepolia until the audit clears — every
+  // other chain gets an active switch prompt
   if (chainId === BASE_SEPOLIA_ID) {
     return (
       <span className="pill hidden sm:inline-flex">
@@ -24,11 +26,15 @@ function ChainSwitcher() {
   }
 
   const label =
-    chainId === BASE_MAINNET_ID ? "Base · mainnet not live" : "Wrong network";
+    chainId === ETHEREUM_SEPOLIA_ID
+      ? "Ethereum Sepolia · need Base"
+      : chainId === BASE_MAINNET_ID
+        ? "Base · mainnet not live"
+        : "Wrong network";
   return (
     <button
       onClick={() => switchChain({ chainId: BASE_SEPOLIA_ID })}
-      title="Switch your wallet to Base Sepolia"
+      title={`Switch your wallet to Base Sepolia (chain ${BASE_SEPOLIA_ID})`}
       className="pill cursor-pointer !border-fee/60 !bg-fee/10 !text-fee transition hover:!border-fee"
     >
       <span
@@ -36,7 +42,7 @@ function ChainSwitcher() {
         style={{ background: "#ffb4ab" }}
       />
       {label}
-      <span className="hidden sm:inline">· Switch to Sepolia</span>
+      <span className="hidden sm:inline">· Switch</span>
     </button>
   );
 }
