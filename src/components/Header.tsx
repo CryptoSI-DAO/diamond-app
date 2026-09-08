@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectKitButton } from "connectkit";
@@ -8,42 +9,93 @@ import { BASE_MAINNET_ID, BASE_SEPOLIA_ID } from "@/lib/addresses";
 
 const ETHEREUM_SEPOLIA_ID = 11155111;
 
-function ChainSwitcher() {
+const chainName = (id: number) =>
+  id === BASE_SEPOLIA_ID
+    ? "Base Sepolia"
+    : id === BASE_MAINNET_ID
+      ? "Base Mainnet"
+      : id === ETHEREUM_SEPOLIA_ID
+        ? "Ethereum Sepolia"
+        : "Unsupported network";
+
+function NetworkSelector() {
   const chainId = useChainId();
   const { isConnected } = useAccount();
   const { switchChain } = useSwitchChain();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
   if (!isConnected) return null;
 
-  // contracts only exist on Base Sepolia until the audit clears — every
-  // other chain gets an active switch prompt
-  if (chainId === BASE_SEPOLIA_ID) {
-    return (
-      <span className="pill hidden sm:inline-flex">
-        <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#ffb547" }} />
-        Base Sepolia
-      </span>
-    );
-  }
+  const onBaseSepolia = chainId === BASE_SEPOLIA_ID;
+  const wrong = !onBaseSepolia;
 
-  const label =
-    chainId === ETHEREUM_SEPOLIA_ID
-      ? "Ethereum Sepolia · need Base"
-      : chainId === BASE_MAINNET_ID
-        ? "Base · mainnet not live"
-        : "Wrong network";
   return (
-    <button
-      onClick={() => switchChain({ chainId: BASE_SEPOLIA_ID })}
-      title={`Switch your wallet to Base Sepolia (chain ${BASE_SEPOLIA_ID})`}
-      className="pill cursor-pointer !border-fee/60 !bg-fee/10 !text-fee transition hover:!border-fee"
-    >
-      <span
-        className="inline-block h-2 w-2 animate-pulse rounded-full"
-        style={{ background: "#ffb4ab" }}
-      />
-      {label}
-      <span className="hidden sm:inline">· Switch</span>
-    </button>
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title="Select network"
+        aria-expanded={open}
+        className={`pill cursor-pointer transition ${
+          wrong
+            ? "!border-fee/60 !bg-fee/10 !text-fee hover:!border-fee"
+            : "hover:!border-ice/60"
+        }`}
+      >
+        <span
+          className={`inline-block h-2 w-2 rounded-full ${wrong ? "animate-pulse" : ""}`}
+          style={{ background: onBaseSepolia ? "#ffb547" : "#ffb4ab" }}
+        />
+        <span className="hidden sm:inline">{chainName(chainId)}</span>
+        <span className={`text-[9px] transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+      </button>
+
+      {open && (
+        <div className="card absolute right-0 top-full z-50 mt-2 w-64 p-2 text-left">
+          <div className="label px-2 pb-1 pt-0.5">Networks</div>
+
+          <button
+            onClick={() => {
+              if (!onBaseSepolia) switchChain({ chainId: BASE_SEPOLIA_ID });
+              setOpen(false);
+            }}
+            className={`flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left transition hover:bg-white/5 ${
+              onBaseSepolia ? "cursor-default" : ""
+            }`}
+          >
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#ffb547" }} />
+            <span className="flex-1 text-sm font-semibold">Base Sepolia</span>
+            <span className="pill !px-2 !py-0.5 !text-[9px] text-ice">TESTNET</span>
+            {onBaseSepolia && <span className="text-ice">✓</span>}
+          </button>
+
+          {/* mainnet exists as a chain but holds no contracts until the audit clears */}
+          <div className="flex w-full cursor-not-allowed items-center gap-2 rounded-xl px-2 py-2.5 opacity-40">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#4da3ff" }} />
+            <span className="flex-1 text-sm font-semibold">Base Mainnet</span>
+            <span className="pill !px-2 !py-0.5 !text-[9px]">POST-AUDIT</span>
+          </div>
+
+          {wrong && (
+            <p className="px-2 pb-1 pt-2 text-[11px] leading-relaxed text-ink-faint">
+              Contracts live on Base Sepolia only — you&apos;re on{" "}
+              <span className="text-fee">{chainName(chainId)}</span>. Tap Base Sepolia
+              to switch; your wallet will add the network if it&apos;s missing.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -75,7 +127,7 @@ export function Header() {
           {link("/create", "Deploy")}
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <ChainSwitcher />
+          <NetworkSelector />
           <ConnectKitButton />
         </div>
       </div>
