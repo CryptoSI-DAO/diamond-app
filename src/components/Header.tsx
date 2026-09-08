@@ -3,20 +3,41 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectKitButton } from "connectkit";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID } from "@/lib/addresses";
 
-function ChainDot() {
+function ChainSwitcher() {
   const chainId = useChainId();
   const { isConnected } = useAccount();
+  const { switchChain } = useSwitchChain();
   if (!isConnected) return null;
-  const name = chainId === BASE_MAINNET_ID ? "Base" : chainId === BASE_SEPOLIA_ID ? "Base Sepolia" : "Wrong network";
-  const color = chainId === BASE_MAINNET_ID ? "#4da3ff" : chainId === BASE_SEPOLIA_ID ? "#ffb547" : "#ffb4ab";
+
+  // contracts only exist on Sepolia until the audit clears — every other
+  // chain (incl. Base mainnet) gets an active switch prompt
+  if (chainId === BASE_SEPOLIA_ID) {
+    return (
+      <span className="pill hidden sm:inline-flex">
+        <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#ffb547" }} />
+        Base Sepolia
+      </span>
+    );
+  }
+
+  const label =
+    chainId === BASE_MAINNET_ID ? "Base · mainnet not live" : "Wrong network";
   return (
-    <span className="pill hidden sm:inline-flex">
-      <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
-      {name}
-    </span>
+    <button
+      onClick={() => switchChain({ chainId: BASE_SEPOLIA_ID })}
+      title="Switch your wallet to Base Sepolia"
+      className="pill cursor-pointer !border-fee/60 !bg-fee/10 !text-fee transition hover:!border-fee"
+    >
+      <span
+        className="inline-block h-2 w-2 animate-pulse rounded-full"
+        style={{ background: "#ffb4ab" }}
+      />
+      {label}
+      <span className="hidden sm:inline">· Switch to Sepolia</span>
+    </button>
   );
 }
 
@@ -48,7 +69,7 @@ export function Header() {
           {link("/create", "Deploy")}
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <ChainDot />
+          <ChainSwitcher />
           <ConnectKitButton />
         </div>
       </div>

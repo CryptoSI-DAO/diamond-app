@@ -6,11 +6,11 @@ import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import {
   useChainId, usePublicClient, useReadContract, useReadContracts,
-  useWriteContract,
+  useSwitchChain, useWriteContract,
 } from "wagmi";
 import { erc20Abi, factoryAbi, vaultAbi } from "@/lib/abis";
 import { errorToCopy } from "@/lib/errors";
-import { CREATION_FEE_ETH } from "@/lib/addresses";
+import { BASE_SEPOLIA_ID, CREATION_FEE_ETH } from "@/lib/addresses";
 import { fmtPct, shortAddr } from "@/lib/format";
 import { useFactoryAddress } from "@/lib/useVaultList";
 
@@ -55,6 +55,8 @@ export default function CreatePage() {
   const { factory, configured } = useFactoryAddress();
   const pc = usePublicClient();
   const chainId = useChainId();
+  const { switchChain } = useSwitchChain();
+  const wrongChain = configured && chainId !== BASE_SEPOLIA_ID;
   const [step, setStep] = useState(1);
   const [token, setToken] = useState("");
   const [symbol, setSymbol] = useState<string | null>(null);
@@ -283,9 +285,17 @@ export default function CreatePage() {
                   {err}
                 </p>
               )}
+              {wrongChain && (
+                <button
+                  onClick={() => switchChain({ chainId: BASE_SEPOLIA_ID })}
+                  className="btn-primary w-full py-3 text-sm uppercase tracking-widest"
+                >
+                  Switch to Base Sepolia to deploy
+                </button>
+              )}
               <div className="flex gap-3">
                 <button onClick={() => setStep(2)} className="btn-ghost flex-1 py-3 text-xs uppercase tracking-widest">← Back</button>
-                <button onClick={submit} disabled={phase !== "idle" || !configured} className="btn-primary flex-[2] py-3 text-sm uppercase tracking-widest disabled:opacity-40">
+                <button onClick={submit} disabled={phase !== "idle" || !configured || wrongChain} className="btn-primary flex-[2] py-3 text-sm uppercase tracking-widest disabled:opacity-40">
                   {phase === "idle" ? `Deploy vault →` : "On-chain…"}
                 </button>
               </div>
