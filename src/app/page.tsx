@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Header, Footer } from "@/components/Header";
 import { useVaultList } from "@/lib/useVaultList";
+import { useGlobalStats } from "@/lib/useGlobalStats";
 import { fmtPct, fmtUnits, shortAddr } from "@/lib/format";
 import {
   useBalance, useChainId, useSwitchChain,
@@ -23,6 +25,9 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 export default function ExplorePage() {
   const { vaults, loading, configured } = useVaultList();
   const totalTvl = vaults.reduce((s, v) => s + v.totalAssets, 0n);
+  const vAddrs = useMemo(() => vaults.map((v) => v.address), [vaults]);
+  const { burnTotal, dividendsTotal, loading: statsLoading } = useGlobalStats(vAddrs);
+  const dash = "—";
 
   // ── Protocol panel state (independent of wallet connection) ──────────────
   const chainId = useChainId();
@@ -53,11 +58,13 @@ export default function ExplorePage() {
           friction. Either way — the diamonds get paid.
         </p>
 
-        {/* global stats */}
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Stat label="Vaults deployed" value={configured ? String(vaults.length) : "—"} />
-          <Stat label="Total value locked" value={configured && !loading ? `${fmtUnits(totalTvl, 18, 2)} ∑` : "—"} />
-          <Stat label="Security level" value="Zero-key" accent />
+        {/* global stats — the lore, live */}
+        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <Stat label="Tokens burned" value={statsLoading || !configured ? dash : burnTotal !== null ? `${fmtUnits(burnTotal, 18, 2)} ∑` : dash} accent />
+          <Stat label="Dividends paid" value={statsLoading || !configured ? dash : dividendsTotal !== null ? `${fmtUnits(dividendsTotal, 18, 2)} ∑` : dash} accent />
+          <Stat label="Vaults deployed" value={configured ? String(vaults.length) : dash} />
+          <Stat label="Total value locked" value={configured && !loading ? `${fmtUnits(totalTvl, 18, 2)} ∑` : dash} />
+          <Stat label="Security level" value="Zero-key" />
         </div>
 
         {/* protocol status panel — live contract facts, works without a wallet */}

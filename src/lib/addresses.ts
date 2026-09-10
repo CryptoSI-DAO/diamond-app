@@ -24,6 +24,11 @@ export const FEE_COLLECTOR: Record<number, `0x${string}`> = {
 
 export const CREATION_FEE_ETH = "0.001";
 
+/** Block where the v1.2.2 factory was deployed on Base Sepolia — origin for
+ *  global event scans (dividends distributed, etc.). From deployments.json
+ *  DHPFactory.txHash receipt. */
+export const FACTORY_DEPLOY_BLOCK = 46_504_082;
+
 export function isTestnet(chainId: number) {
   return chainId === BASE_SEPOLIA_ID;
 }
