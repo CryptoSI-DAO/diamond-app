@@ -21,7 +21,7 @@ const isAddr = (s: string) => /^0x[a-fA-F0-9]{40}$/.test(s);
 // test canon + landing economics). NOT user-configurable.
 const FIXED_ENTRY_TAX_BPS = 500; // 5% on deposit
 const FIXED_EXIT_TAX_BPS = 1000; // 10% on withdraw
-const FIXED_DIV_SHARE_BPS = 7000; // 70% of tax → holders, remainder burned
+const FIXED_DIV_SHARE_BPS = 8000; // 80% of tax → holders (deployed vault config — verified on-chain, both v1.2.2 vaults); remainder: 0.5% protocol fee, 19.5% burn
 const FIXED_ACCEPT_FOT = false; // strict: fee-on-transfer tokens rejected
 
 export default function CreatePage() {
