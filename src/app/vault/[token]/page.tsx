@@ -6,7 +6,7 @@ import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import { TokenIcon } from "@/components/TokenIcon";
 import { useVaultCreators } from "@/lib/useVaultCreators";
-import { CURATOR_ADDRESS } from "@/lib/addresses";
+import { BASE_SEPOLIA_ID, CURATOR_ADDRESS, FACTORY } from "@/lib/addresses";
 import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
   useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
@@ -99,7 +99,9 @@ export default function VaultPage() {
 
   // vault creator (derived from VaultCreated logs) for the header line
   const { creatorsByVault } = useVaultCreators([addr]);
-  const creator = creatorsByVault[addr.toLowerCase()];
+  const creatorInfo = creatorsByVault[addr.toLowerCase()];
+  const creator = creatorInfo?.from;
+  const delegated = !!creatorInfo && creatorInfo.to.toLowerCase() !== FACTORY[BASE_SEPOLIA_ID].toLowerCase();
   const isCuratorVault = creator?.toLowerCase() === CURATOR_ADDRESS.toLowerCase();
 
   const amt = useMemo(() => parseUnits(amount, dec), [amount, dec]);
@@ -331,7 +333,14 @@ export default function VaultPage() {
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
                 {creator ? (
                   <>
-                    <span className="text-ink-faint">created by</span>
+                    {delegated ? (
+                      <>
+                        <span className="pill border-fee/40 text-fee">created via delegation</span>
+                        <span className="text-ink-faint">submitted by</span>
+                      </>
+                    ) : (
+                      <span className="text-ink-faint">created by</span>
+                    )}
                     <a
                       href={`https://sepolia.basescan.org/address/${creator}`}
                       target="_blank"

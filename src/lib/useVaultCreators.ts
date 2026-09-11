@@ -12,9 +12,19 @@ const VAULT_CREATED = parseAbiItem(
 /** Public nodes cap getLogs ranges — stay under it (same as useGlobalStats). */
 const LOG_CHUNK = 9000;
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
+
+export type VaultCreatorInfo = {
+  /** tx.from — the submitter. Under AA this can be a relayer, NOT the human. */
+  from: `0x${string}`;
+  /** tx.to — the factory for direct creates; another contract when routed
+   *  through delegation/smart-account machinery. */
+  to: `0x${string}`;
+};
+
 export type VaultCreators = {
-  /** vault address (checksummed as logged) → creator address (tx.from) */
-  creatorsByVault: Record<string, `0x${string}`>;
+  /** vault address (lowercased) → submitter + call target of its VaultCreated tx */
+  creatorsByVault: Record<string, VaultCreatorInfo>;
   loading: boolean;
   error: string | null;
 };
@@ -28,7 +38,7 @@ export type VaultCreators = {
  */
 export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): VaultCreators {
   const pc = usePublicClient();
-  const [creatorsByVault, setCreatorsByVault] = useState<Record<string, `0x${string}`>>({});
+  const [creatorsByVault, setCreatorsByVault] = useState<Record<string, VaultCreatorInfo>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const runKey = useMemo(() => vaultAddresses.join(","), [vaultAddresses]);
@@ -64,16 +74,16 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
             if (l.transactionHash) vaultTx.set(vault.toLowerCase(), l.transactionHash);
           }
         }
-        // logs carry no sender — read tx.from via receipts (few, deduped)
-        const txFrom = new Map<string, `0x${string}`>();
+        // logs carry no sender — read tx.from + tx.to via receipts (few, deduped)
+        const txInfo = new Map<string, { from: `0x${string}`; to: `0x${string}` }>();
         for (const hash of new Set(vaultTx.values())) {
           const r = await pc.getTransactionReceipt({ hash });
-          txFrom.set(hash, r.from);
+          txInfo.set(hash, { from: r.from, to: r.to ?? ZERO_ADDRESS });
         }
-        const map: Record<string, `0x${string}`> = {};
+        const map: Record<string, VaultCreatorInfo> = {};
         for (const [vault, hash] of vaultTx) {
-          const from = txFrom.get(hash);
-          if (from) map[vault] = from;
+          const info = txInfo.get(hash);
+          if (info) map[vault] = info;
         }
         setCreatorsByVault(map);
       } catch (e) {

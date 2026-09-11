@@ -38,7 +38,7 @@ export default function ExplorePage() {
   const [curatedOnly, setCuratedOnly] = useState(true);
   const [showCuratedInfo, setShowCuratedInfo] = useState(false);
   const isCurated = (v: VaultSummary) =>
-    creatorsByVault[v.address.toLowerCase()]?.toLowerCase() === CURATOR_ADDRESS.toLowerCase();
+    creatorsByVault[v.address.toLowerCase()]?.from.toLowerCase() === CURATOR_ADDRESS.toLowerCase();
   const shown = curatedOnly ? vaults.filter(isCurated) : vaults;
 
   // ── Protocol panel state (independent of wallet connection) ──────────────
