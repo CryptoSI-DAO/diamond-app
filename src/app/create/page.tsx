@@ -17,40 +17,12 @@ import { useFactoryAddress } from "@/lib/useVaultList";
 
 const isAddr = (s: string) => /^0x[a-fA-F0-9]{40}$/.test(s);
 
-function Stepper({ label, desc, badge, value, set, max, minLabel, maxLabel }: {
-  label: string; desc: string; badge: string;
-  value: number; set: (n: number) => void; max: number;
-  minLabel: string; maxLabel: string;
-}) {
-  return (
-    <div className="card p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-display text-sm font-bold tracking-wide uppercase">{label}</div>
-          <div className="mt-1 text-xs text-ink-faint">{desc}</div>
-        </div>
-        <span className="pill !text-[10px] text-ice">{badge}</span>
-      </div>
-      <div className="mt-4 flex items-center justify-between">
-        <button onClick={() => set(Math.max(0, value - 25))} className="btn-ghost h-10 w-10 text-lg">−</button>
-        <div className="num text-4xl font-bold">
-          {(value / 100).toFixed(1)}
-          <span className="text-xl text-ice">%</span>
-        </div>
-        <button onClick={() => set(Math.min(max, value + 25))} className="btn-ghost h-10 w-10 text-lg">+</button>
-      </div>
-      <input
-        type="range" min={0} max={max} step={25} value={value}
-        onChange={(e) => set(Number(e.target.value))}
-        className="mt-4 w-full"
-      />
-      <div className="mt-1 flex justify-between text-[10px] tracking-wider uppercase text-ink-faint">
-        <span>{minLabel}</span>
-        <span>{maxLabel}</span>
-      </div>
-    </div>
-  );
-}
+// Fixed protocol parameters — as stated by the smart contract (DHPImplementation
+// test canon + landing economics). NOT user-configurable.
+const FIXED_ENTRY_TAX_BPS = 500; // 5% on deposit
+const FIXED_EXIT_TAX_BPS = 1000; // 10% on withdraw
+const FIXED_DIV_SHARE_BPS = 7000; // 70% of tax → holders, remainder burned
+const FIXED_ACCEPT_FOT = false; // strict: fee-on-transfer tokens rejected
 
 export default function CreatePage() {
   const { factory, configured } = useFactoryAddress();
@@ -61,10 +33,6 @@ export default function CreatePage() {
   const [step, setStep] = useState(1);
   const [token, setToken] = useState("");
   const [symbol, setSymbol] = useState<string | null>(null);
-  const [entryTax, setEntryTax] = useState(250);
-  const [exitTax, setExitTax] = useState(1500);
-  const [divShare, setDivShare] = useState(6500);
-  const [fot, setFot] = useState(false);
   const [phase, setPhase] = useState<TxPhase>("idle");
   const [err, setErr] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
@@ -122,7 +90,7 @@ export default function CreatePage() {
         address: factory,
         abi: factoryAbi,
         functionName: "createVault",
-        args: [token as `0x${string}`, { entryTaxBps: entryTax, exitTaxBps: exitTax, dividendShareBps: divShare, acceptFeesFromTransfer: fot }],
+        args: [token as `0x${string}`, { entryTaxBps: FIXED_ENTRY_TAX_BPS, exitTaxBps: FIXED_EXIT_TAX_BPS, dividendShareBps: FIXED_DIV_SHARE_BPS, acceptFeesFromTransfer: FIXED_ACCEPT_FOT }],
         value: BigInt(Math.round(Number(CREATION_FEE_ETH) * 1e18)),
       },
       {
@@ -243,27 +211,33 @@ export default function CreatePage() {
 
           {step === 2 && (
             <>
-              <Stepper label="Entry ingress tax" desc="Deducted on deposit, distributed to stakers." badge="Anti-dilution" value={entryTax} set={setEntryTax} max={1000} minLabel="0.0% min" maxLabel="10% hard cap" />
-              <Stepper label="Premature exit friction" desc="Penalty on early unlock — punishes paper hands." badge="Diamond gate" value={exitTax} set={setExitTax} max={2500} minLabel="0.0% soft" maxLabel="25% max friction" />
-              <Stepper label="Dividend redistribution" desc="Yield share redirected to long-term holders." badge="Yield sink" value={divShare} set={setDivShare} max={9000} minLabel="0% stakers only" maxLabel="90% conviction pool" />
-
-              <div className="card p-5">
+              <div className="card p-6">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-display text-sm font-bold">Accept fee-on-transfer tokens</div>
-                    <div className="mt-1 text-xs text-ink-faint">Enables custom reflection & burn compatibility.</div>
-                  </div>
-                  <button
-                    onClick={() => setFot(!fot)}
-                    className={`relative h-6 w-11 rounded-full transition ${fot ? "bg-ice" : "bg-line"}`}
-                    aria-pressed={fot}
-                  >
-                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-surface-dim transition ${fot ? "left-[22px]" : "left-0.5"}`} />
-                  </button>
+                  <div className="label text-ice">Protocol parameters</div>
+                  <span className="pill !text-[10px]">fixed on-chain</span>
                 </div>
-                <p className="mt-3 rounded-lg border border-fee/30 bg-fee/10 px-3 py-2 text-[11px]" style={{ color: "var(--color-fee)" }}>
-                  ⓘ High-slippage tokens: shares are priced assuming full-value delivery. Use only for trusted hook tokens.
+                <p className="mt-2 text-xs text-ink-dim">
+                  Every vault in the protocol shares the same immutable tax
+                  dynamics. Configurable at deploy time in earlier versions,
+                  now standardized.
                 </p>
+                <div className="num mt-4 grid grid-cols-3 gap-3 text-center text-xs">
+                  <div className="card-inner p-3">
+                    <div className="text-ink-faint">ENTRY TAX</div>
+                    <div className="mt-1 text-lg font-bold">{fmtPct(FIXED_ENTRY_TAX_BPS)}</div>
+                    <div className="mt-1 text-[10px] text-ink-faint">on deposit · to stakers</div>
+                  </div>
+                  <div className="card-inner p-3">
+                    <div className="text-ink-faint">EXIT TAX</div>
+                    <div className="mt-1 text-lg font-bold text-danger">{fmtPct(FIXED_EXIT_TAX_BPS)}</div>
+                    <div className="mt-1 text-[10px] text-ink-faint">on withdraw · paper hands pay</div>
+                  </div>
+                  <div className="card-inner p-3">
+                    <div className="text-ink-faint">DIVIDEND SHARE</div>
+                    <div className="mt-1 text-lg font-bold text-ice">{fmtPct(FIXED_DIV_SHARE_BPS)}</div>
+                    <div className="mt-1 text-[10px] text-ink-faint">of tax → holders</div>
+                  </div>
+                </div>
               </div>
 
               {/* live preview */}
@@ -278,9 +252,9 @@ export default function CreatePage() {
                     <span className="pill !text-[10px] text-ice">Anti-dump vault</span>
                   </div>
                   <div className="num mt-3 grid grid-cols-3 gap-3 text-center text-xs">
-                    <div><div className="text-ink-faint">ENTRY</div><div className="mt-1 font-bold">{fmtPct(entryTax)}</div></div>
-                    <div><div className="text-ink-faint">EXIT</div><div className="mt-1 font-bold text-danger">{fmtPct(exitTax)}</div></div>
-                    <div><div className="text-ink-faint">TO STAKERS</div><div className="mt-1 font-bold text-ice">{fmtPct(divShare)}</div></div>
+                    <div><div className="text-ink-faint">ENTRY</div><div className="mt-1 font-bold">{fmtPct(FIXED_ENTRY_TAX_BPS)}</div></div>
+                    <div><div className="text-ink-faint">EXIT</div><div className="mt-1 font-bold text-danger">{fmtPct(FIXED_EXIT_TAX_BPS)}</div></div>
+                    <div><div className="text-ink-faint">TO STAKERS</div><div className="mt-1 font-bold text-ice">{fmtPct(FIXED_DIV_SHARE_BPS)}</div></div>
                   </div>
                 </div>
               </div>
@@ -297,10 +271,10 @@ export default function CreatePage() {
               <div className="card p-6">
                 <div className="num space-y-3 text-sm">
                   <Row k="Token" v={symbol ? `${symbol} · ${shortAddr(token)}` : shortAddr(token)} />
-                  <Row k="Entry ingress tax" v={fmtPct(entryTax)} />
-                  <Row k="Premature exit friction" v={fmtPct(exitTax)} danger />
-                  <Row k="Dividend redistribution" v={fmtPct(divShare)} />
-                  <Row k="Fee-on-transfer" v={fot ? "accepted (permissive)" : "rejected (strict)"} />
+                  <Row k="Entry tax" v={fmtPct(FIXED_ENTRY_TAX_BPS)} />
+                  <Row k="Exit tax" v={fmtPct(FIXED_EXIT_TAX_BPS)} danger />
+                  <Row k="Dividend share" v={fmtPct(FIXED_DIV_SHARE_BPS)} />
+                  <Row k="Fee-on-transfer" v="rejected (strict)" />
                   <div className="border-t border-line/50 pt-3">
                     <Row k="Factory fee" v={`${CREATION_FEE_ETH} ETH`} accent />
                   </div>
