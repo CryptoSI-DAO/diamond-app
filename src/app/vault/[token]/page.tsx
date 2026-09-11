@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import { TokenIcon } from "@/components/TokenIcon";
+import { useVaultCreators } from "@/lib/useVaultCreators";
+import { CURATOR_ADDRESS } from "@/lib/addresses";
 import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
   useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
@@ -94,6 +96,11 @@ export default function VaultPage() {
   const dec = (tok.data?.[1]?.result as number) ?? 18;
   const walletBal = (tok.data?.[2]?.result as bigint) ?? 0n;
   const allowance = (tok.data?.[3]?.result as bigint) ?? 0n;
+
+  // vault creator (derived from VaultCreated logs) for the header line
+  const { creatorsByVault } = useVaultCreators([addr]);
+  const creator = creatorsByVault[addr.toLowerCase()];
+  const isCuratorVault = creator?.toLowerCase() === CURATOR_ADDRESS.toLowerCase();
 
   const amt = useMemo(() => parseUnits(amount, dec), [amount, dec]);
   const valid = amt > 0n;
@@ -321,6 +328,26 @@ export default function VaultPage() {
                 Immutable conviction vault. Ingress tax streams to stakers; exit
                 friction punishes paper hands. Zero admin keys.
               </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                {creator ? (
+                  <>
+                    <span className="text-ink-faint">created by</span>
+                    <a
+                      href={`https://sepolia.basescan.org/address/${creator}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="num text-ice hover:underline"
+                    >
+                      {shortAddr(creator)} ↗
+                    </a>
+                    {isCuratorVault && (
+                      <span className="pill border-ice/40 text-ice">Curated · CryptoSI-DAO</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-ink-faint">creator lookup…</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
