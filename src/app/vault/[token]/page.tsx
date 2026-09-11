@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
+import { TokenIcon } from "@/components/TokenIcon";
 import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
   useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
@@ -306,14 +307,21 @@ export default function VaultPage() {
           Vaults / <span className="text-ice">{shortAddr(addr)}</span>
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-              {symbol} / dh{symbol} vault
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-ink-dim">
-              Immutable conviction vault. Ingress tax streams to stakers; exit
-              friction punishes paper hands. Zero admin keys.
-            </p>
+          <div className="flex items-center gap-4">
+            {assetAddr ? (
+              <TokenIcon address={assetAddr} symbol={symbol} size={56} />
+            ) : (
+              <span className="h-14 w-14 shrink-0 rounded-full bg-card-2 ring-1 ring-line" />
+            )}
+            <div>
+              <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+                {symbol} / dh{symbol} vault
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-ink-dim">
+                Immutable conviction vault. Ingress tax streams to stakers; exit
+                friction punishes paper hands. Zero admin keys.
+              </p>
+            </div>
           </div>
         </div>
 
