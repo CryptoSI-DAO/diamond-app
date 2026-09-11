@@ -7,6 +7,8 @@ import { FACTORY } from "@/lib/addresses";
 
 export type VaultSummary = {
   address: `0x${string}`;
+  /** Underlying token (ERC-4626 asset) — key for token icons. */
+  asset: `0x${string}`;
   symbol: string;
   decimals: number;
   totalAssets: bigint;
@@ -55,6 +57,7 @@ export function useVaultList(): {
     contracts: vAddrs.flatMap((a) => [
       { abi: erc20Abi, address: a, functionName: "symbol" },
       { abi: erc20Abi, address: a, functionName: "decimals" },
+      { abi: vaultAbi, address: a, functionName: "asset" },
     ] as const),
   });
 
@@ -73,15 +76,17 @@ export function useVaultList(): {
 
   const vaults: VaultSummary[] = vAddrs
     .map((a, i) => {
-      const sym = meta.data?.[i * 2]?.result as string | undefined;
-      const dec = meta.data?.[i * 2 + 1]?.result as number | undefined;
+      const sym = meta.data?.[i * 3]?.result as string | undefined;
+      const dec = meta.data?.[i * 3 + 1]?.result as number | undefined;
+      const asset = meta.data?.[i * 3 + 2]?.result as `0x${string}` | undefined;
       const ta = stats.data?.[i * 4]?.result as bigint | undefined;
       const ts = stats.data?.[i * 4 + 1]?.result as bigint | undefined;
       const et = stats.data?.[i * 4 + 2]?.result as number | undefined;
       const xt = stats.data?.[i * 4 + 3]?.result as number | undefined;
-      if (!sym || dec === undefined || ta === undefined || ts === undefined || et === undefined || xt === undefined) return null;
+      if (!sym || dec === undefined || !asset || ta === undefined || ts === undefined || et === undefined || xt === undefined) return null;
       return {
         address: a,
+        asset,
         symbol: sym,
         decimals: dec,
         totalAssets: ta,

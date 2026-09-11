@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { Header, Footer } from "@/components/Header";
 import { useVaultList } from "@/lib/useVaultList";
+import { TokenIcon } from "@/components/TokenIcon";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { fmtPct, fmtUnits, shortAddr } from "@/lib/format";
 import {
@@ -172,7 +173,10 @@ export default function ExplorePage() {
                 className="card group p-5 transition hover:border-ice/60"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-display text-lg font-bold">{v.symbol}</span>
+                  <span className="flex items-center gap-3">
+                    <TokenIcon address={v.asset} symbol={v.symbol} size={40} />
+                    <span className="font-display text-lg font-bold">{v.symbol}</span>
+                  </span>
                   <span className="pill">dh{v.symbol}</span>
                 </div>
                 <div className="num mt-4 text-3xl font-bold">{price.toFixed(4)}</div>
