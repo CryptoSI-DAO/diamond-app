@@ -24,6 +24,12 @@ export const FEE_COLLECTOR: Record<number, `0x${string}`> = {
 
 export const CREATION_FEE_ETH = "0.001";
 
+/** Curator wallet for the Explore page's "Curated" tab. Only vaults whose
+ *  VaultCreated tx was sent by this address (derived on-chain from logs, see
+ *  useVaultCreators) appear under curated. Until v2.0.0 ships on-chain
+ *  endorsement registries, this constant IS the curation policy. */
+export const CURATOR_ADDRESS = "0x0B172a4E265AcF4c2E0aB238F63A44bf29bBd158" as `0x${string}`;
+
 /** Block where the v1.2.2 factory was deployed on Base Sepolia — origin for
  *  global event scans (dividends distributed, etc.). From deployments.json
  *  DHPFactory.txHash receipt. */

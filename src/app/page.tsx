@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Header, Footer } from "@/components/Header";
-import { useVaultList } from "@/lib/useVaultList";
+import { useVaultList, type VaultSummary } from "@/lib/useVaultList";
+import { useVaultCreators } from "@/lib/useVaultCreators";
 import { TokenIcon } from "@/components/TokenIcon";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { fmtPct, fmtUnits, shortAddr } from "@/lib/format";
@@ -11,7 +12,7 @@ import {
   useBalance, useChainId, useSwitchChain,
 } from "wagmi";
 import {
-  BASE_SEPOLIA_ID, CREATION_FEE_ETH, FACTORY, FEE_COLLECTOR, IMPLEMENTATION,
+  BASE_SEPOLIA_ID, CREATION_FEE_ETH, CURATOR_ADDRESS, FACTORY, FEE_COLLECTOR, IMPLEMENTATION,
 } from "@/lib/addresses";
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
@@ -28,7 +29,17 @@ export default function ExplorePage() {
   const totalTvl = vaults.reduce((s, v) => s + v.totalAssets, 0n);
   const vAddrs = useMemo(() => vaults.map((v) => v.address), [vaults]);
   const { burnTotal, dividendsTotal, loading: statsLoading } = useGlobalStats(vAddrs);
+  const { creatorsByVault } = useVaultCreators(vAddrs);
   const dash = "—";
+
+  // ── Curation toggle: default CURATED (vaults created by the CryptoSI-DAO
+  // curator wallet), "All" shows everything. Derived from VaultCreated logs —
+  // on-chain, not a hand-list. v2.0.0 adds self-curation registries.
+  const [curatedOnly, setCuratedOnly] = useState(true);
+  const [showCuratedInfo, setShowCuratedInfo] = useState(false);
+  const isCurated = (v: VaultSummary) =>
+    creatorsByVault[v.address.toLowerCase()]?.toLowerCase() === CURATOR_ADDRESS.toLowerCase();
+  const shown = curatedOnly ? vaults.filter(isCurated) : vaults;
 
   // ── Protocol panel state (independent of wallet connection) ──────────────
   const chainId = useChainId();
@@ -160,8 +171,58 @@ export default function ExplorePage() {
           </div>
         )}
 
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {vaults.map((v) => {
+        {configured && !loading && vaults.length > 0 && curatedOnly && shown.length === 0 && (
+          <div className="card mt-8 p-10 text-center">
+            <div className="font-display text-xl font-semibold">No curated vaults yet</div>
+            <p className="mt-2 text-sm text-ink-dim">
+              Curated vaults are launched by CryptoSI-DAO — none on-chain at this
+              address yet. Explore every vault in the meantime.
+            </p>
+            <button
+              onClick={() => setCuratedOnly(false)}
+              className="btn-primary mt-5 px-6 py-2.5 text-sm"
+            >
+              Show all vaults →
+            </button>
+          </div>
+        )}
+
+        {configured && vaults.length > 0 && shown.length > 0 && (
+        <>
+        {/* curation toggle */}
+        <div className="mt-8 flex flex-wrap items-center gap-3">
+          <div className="inline-flex rounded-full border border-line bg-card p-1" role="tablist" aria-label="Vault curation filter">
+            <button
+              role="tab"
+              aria-selected={curatedOnly}
+              onClick={() => setCuratedOnly(true)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${curatedOnly ? "bg-ice text-surface" : "text-ink-dim hover:text-ink"}`}
+            >
+              Curated
+            </button>
+            <button
+              role="tab"
+              aria-selected={!curatedOnly}
+              onClick={() => setCuratedOnly(false)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${!curatedOnly ? "bg-ice text-surface" : "text-ink-dim hover:text-ink"}`}
+            >
+              All vaults
+            </button>
+          </div>
+          <button
+            onClick={() => setShowCuratedInfo(true)}
+            aria-label="What are curated vaults?"
+            className="num flex h-6 w-6 items-center justify-center rounded-full border border-line text-xs text-ink-dim transition hover:border-ice hover:text-ice"
+          >
+            ?
+          </button>
+          <span className="label ml-auto">
+            {shown.length} vault{shown.length === 1 ? "" : "s"} · {curatedOnly ? "curated by CryptoSI-DAO" : "everyone"}
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {shown.map((v) => {
             const price =
               v.totalSupply > 0n
                 ? Number((v.totalAssets * 10n ** 18n) / v.totalSupply) / 1e18
@@ -196,7 +257,53 @@ export default function ExplorePage() {
             );
           })}
         </div>
+        </>
+        )}
       </main>
+
+      {showCuratedInfo && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center"
+          onClick={() => setShowCuratedInfo(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="About curated vaults"
+        >
+          <div
+            className="card relative w-full max-w-md p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowCuratedInfo(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full border border-line text-ink-dim transition hover:border-ice hover:text-ice"
+            >
+              ✕
+            </button>
+            <div className="eyebrow">Curation</div>
+            <h3 className="font-display mt-1 text-xl font-bold">What are curated vaults?</h3>
+            <p className="mt-3 text-sm text-ink-dim">
+              To be listed in the <span className="font-semibold text-ink">Curated</span>{" "}
+              section, a vault must be launched by <span className="text-ice">CryptoSI-DAO</span>.
+              Curated vaults are trusted and contain real tokens.
+            </p>
+            <p className="mt-3 text-sm text-ink-dim">
+              The &quot;All vaults&quot; tab lists everything deployed on the
+              protocol — permissionless means permissionless. Verify what you
+              deposit into; a vault listing is not an endorsement.
+            </p>
+            <div className="mt-4 rounded-lg border border-ice/30 bg-card-2 p-3 text-sm">
+              <span className="font-semibold text-ice">v2.0.0 incoming:</span>{" "}
+              <span className="text-ink-dim">
+                various methods of self-curation will be available in version
+                2.0.0 — which should be released very soon! Front-end operators
+                will curate their own lists, on-chain.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );
