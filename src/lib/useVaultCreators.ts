@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
-import { BASE_SEPOLIA_ID, FACTORY, FACTORY_DEPLOY_BLOCK } from "@/lib/addresses";
+import { BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
+import { useProtocolVersion } from "@/lib/version";
 
 const VAULT_CREATED = parseAbiItem(
   "event VaultCreated(address indexed token, address indexed vault, uint16 entryTaxBps, uint16 exitTaxBps, uint16 dividendShareBps)"
@@ -38,6 +39,7 @@ export type VaultCreators = {
  */
 export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): VaultCreators {
   const pc = usePublicClient();
+  const { version } = useProtocolVersion();
   const [creatorsByVault, setCreatorsByVault] = useState<Record<string, VaultCreatorInfo>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +61,13 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
       try {
         const wanted = new Set(vaultAddresses.map((a) => a.toLowerCase()));
         const vaultTx = new Map<string, `0x${string}`>(); // vault -> VaultCreated tx hash
+        const factory = DEPLOYMENTS[version][BASE_SEPOLIA_ID].factory;
+        const deployBlock = DEPLOYMENTS[version][BASE_SEPOLIA_ID].deployBlock;
         const latest = await pc.getBlockNumber();
-        for (let start = BigInt(FACTORY_DEPLOY_BLOCK); start <= latest; start += BigInt(LOG_CHUNK)) {
+        for (let start = BigInt(deployBlock); start <= latest; start += BigInt(LOG_CHUNK)) {
           const end = start + BigInt(LOG_CHUNK - 1) > latest ? latest : start + BigInt(LOG_CHUNK - 1);
           const logs = await pc.getLogs({
-            address: FACTORY[BASE_SEPOLIA_ID],
+            address: factory,
             event: VAULT_CREATED,
             fromBlock: start,
             toBlock: end,
@@ -93,7 +97,7 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
         setLoading(false);
       }
     })();
-  }, [runKey, !!pc]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [runKey, !!pc, version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { creatorsByVault, loading, error };
 }

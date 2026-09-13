@@ -4,6 +4,7 @@ import { WagmiProvider, createConfig, http } from "wagmi";
 import { base, baseSepolia } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
+import { ProtocolVersionProvider } from "@/lib/version";
 
 const config = createConfig(
   getDefaultConfig({
@@ -27,7 +28,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <ConnectKitProvider theme="auto" options={{ initialChainId: 0 }}>
-          {children}
+          <ProtocolVersionProvider>{children}</ProtocolVersionProvider>
         </ConnectKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

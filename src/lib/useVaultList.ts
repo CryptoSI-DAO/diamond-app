@@ -3,7 +3,8 @@
 import { useReadContract, useReadContracts } from "wagmi";
 import { useAccount, useChainId } from "wagmi";
 import { erc20Abi, factoryAbi, vaultAbi } from "@/lib/abis";
-import { FACTORY } from "@/lib/addresses";
+import { DEPLOYMENTS, ZERO_ADDRESS } from "@/lib/addresses";
+import { useProtocolVersion } from "@/lib/version";
 
 export type VaultSummary = {
   address: `0x${string}`;
@@ -19,8 +20,10 @@ export type VaultSummary = {
 
 export function useFactoryAddress() {
   const chainId = useChainId();
-  const addr = FACTORY[chainId];
-  const configured = !!addr && addr !== "0x0000000000000000000000000000000000000000";
+  const { version } = useProtocolVersion();
+  // Mainnet stays unconfigured until the audit clears (zero address in the registry).
+  const addr = DEPLOYMENTS[version][chainId]?.factory ?? ZERO_ADDRESS;
+  const configured = !!addr && addr !== ZERO_ADDRESS;
   return { factory: addr, configured };
 }
 

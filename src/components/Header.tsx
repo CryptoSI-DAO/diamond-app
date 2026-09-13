@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectKitButton } from "connectkit";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
-import { BASE_MAINNET_ID, BASE_SEPOLIA_ID } from "@/lib/addresses";
+import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS, PROTOCOL_VERSIONS, type ProtocolVersion } from "@/lib/addresses";
+import { useProtocolVersion } from "@/lib/version";
 
 const ETHEREUM_SEPOLIA_ID = 11155111;
 
@@ -136,9 +137,42 @@ export function Header() {
 }
 
 export function Footer() {
+  const { version, setVersion } = useProtocolVersion();
+
+  const versionButton = (v: ProtocolVersion, label: string, tag?: string) => {
+    const active = version === v;
+    const legacy = DEPLOYMENTS[v][BASE_SEPOLIA_ID].status === "legacy";
+    return (
+      <button
+        key={v}
+        onClick={() => setVersion(v)}
+        aria-pressed={active}
+        title={legacy ? "Legacy deployment — superseded by the v1.3.0 unclaimed-IOU fix. For comparison only." : "Current deployment"}
+        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition ${
+          active ? "bg-ice text-[#04182e]" : "text-ink-faint hover:text-ink"
+        }`}
+      >
+        {label}
+        {tag && (
+          <span
+            className={`rounded px-1 py-px text-[9px] font-bold leading-tight tracking-normal ${
+              legacy ? "bg-amber-200/20 text-amber-300" : "bg-black/10 text-[#04182e]"
+            }`}
+          >
+            {tag}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   return (
     <footer className="mt-16 border-t border-line/40">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-[11px] tracking-[0.12em] uppercase text-ink-faint">
+        <div className="inline-flex items-center gap-1 rounded-lg border border-line bg-card p-1 text-[10px]">
+          {versionButton("v1.3.0", "Contracts v1.3.0")}
+          {versionButton("v1.2.2", "v1.2.2", "legacy")}
+        </div>
         <span>Protocol status: immutable</span>
         <span>Security level: zero-key</span>
         <a href="https://cryptosi-dao.github.io/diamond-landing/" className="hover:text-ice" target="_blank" rel="noreferrer">

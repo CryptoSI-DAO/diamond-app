@@ -12,8 +12,9 @@ import {
   useBalance, useChainId, useSwitchChain,
 } from "wagmi";
 import {
-  BASE_SEPOLIA_ID, CREATION_FEE_ETH, CURATOR_ADDRESS, FACTORY, FEE_COLLECTOR, IMPLEMENTATION,
+  BASE_SEPOLIA_ID, CREATION_FEE_ETH, CURATOR_ADDRESS,
 } from "@/lib/addresses";
+import { useProtocolVersion } from "@/lib/version";
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
@@ -42,14 +43,15 @@ export default function ExplorePage() {
   const shown = curatedOnly ? vaults.filter(isCurated) : vaults;
 
   // ── Protocol panel state (independent of wallet connection) ──────────────
+  const { version, deployment } = useProtocolVersion();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const onSepolia = chainId === BASE_SEPOLIA_ID;
-  const sepoliaFactory = FACTORY[BASE_SEPOLIA_ID];
+  const sepoliaFactory = deployment.factory;
 
   // creation fee Treasury balance = protocol fees earned to date
   const feeBalance = useBalance({
-    address: FEE_COLLECTOR[BASE_SEPOLIA_ID],
+    address: deployment.feeCollector,
     chainId: BASE_SEPOLIA_ID,
   });
   const feeEth = feeBalance.data
@@ -84,7 +86,7 @@ export default function ExplorePage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="font-display text-lg font-semibold">Protocol status</div>
             <span className="pill !text-[10px] text-ice">
-              {onSepolia ? "TESTNET — BASE SEPOLIA" : "READ-ONLY — CONNECT TO SEPOLIA"}
+              {onSepolia ? `TESTNET — BASE SEPOLIA · ${version}` : `READ-ONLY — CONNECT TO SEPOLIA · ${version}`}
             </span>
           </div>
 
@@ -119,24 +121,23 @@ export default function ExplorePage() {
           </div>
 
           <p className="mt-4 text-xs leading-relaxed text-ink-faint">
-            v1.2.2 · five sequential self-audits, 70/70 tests passing, Sourcify
-            exact-match · implementation{" "}
+            {deployment.auditLine} · implementation{" "}
             <a
-              href={`https://sepolia.basescan.org/address/${IMPLEMENTATION[BASE_SEPOLIA_ID]}`}
+              href={`https://sepolia.basescan.org/address/${deployment.implementation}`}
               target="_blank"
               rel="noreferrer"
               className="text-ice hover:underline"
             >
-              {shortAddr(IMPLEMENTATION[BASE_SEPOLIA_ID])} ↗
+              {shortAddr(deployment.implementation)} ↗
             </a>{" "}
             · fee collector{" "}
             <a
-              href={`https://sepolia.basescan.org/address/${FEE_COLLECTOR[BASE_SEPOLIA_ID]}`}
+              href={`https://sepolia.basescan.org/address/${deployment.feeCollector}`}
               target="_blank"
               rel="noreferrer"
               className="text-ice hover:underline"
             >
-              {shortAddr(FEE_COLLECTOR[BASE_SEPOLIA_ID])} ↗
+              {shortAddr(deployment.feeCollector)} ↗
             </a>
           </p>
 

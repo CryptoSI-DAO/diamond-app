@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
 import { vaultAbi } from "@/lib/abis";
-import { FACTORY_DEPLOY_BLOCK } from "@/lib/addresses";
+import { BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
+import { useProtocolVersion } from "@/lib/version";
 
 const TAX_COLLECTED = parseAbiItem(
   "event TaxCollected(uint8 kind, uint256 gross, uint256 dividends, uint256 burned, uint256 protocolFee)"
@@ -31,6 +32,7 @@ export type GlobalStats = {
  */
 export function useGlobalStats(vaultAddresses: readonly `0x${string}`[]): GlobalStats {
   const pc = usePublicClient();
+  const { version } = useProtocolVersion();
   const [burnTotal, setBurnTotal] = useState<bigint | null>(null);
   const [dividendsTotal, setDividendsTotal] = useState<bigint | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,9 +73,10 @@ export function useGlobalStats(vaultAddresses: readonly `0x${string}`[]): Global
         setBurnTotal(burns);
 
         // 2) dividends — chunked log scan (all vaults per call)
+        const deployBlock = DEPLOYMENTS[version][BASE_SEPOLIA_ID].deployBlock;
         const latest = await pc.getBlockNumber();
         let divs = 0n;
-        for (let start = BigInt(FACTORY_DEPLOY_BLOCK); start <= latest; start += BigInt(LOG_CHUNK)) {
+        for (let start = BigInt(deployBlock); start <= latest; start += BigInt(LOG_CHUNK)) {
           const end = start + BigInt(LOG_CHUNK - 1) > latest ? latest : start + BigInt(LOG_CHUNK - 1);
           const logs = await pc.getLogs({
             address: [...vaultAddresses],
@@ -93,7 +96,7 @@ export function useGlobalStats(vaultAddresses: readonly `0x${string}`[]): Global
     })();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runKey, !!pc]);
+  }, [runKey, !!pc, version]);
 
   return { burnTotal, dividendsTotal, loading, error };
 }

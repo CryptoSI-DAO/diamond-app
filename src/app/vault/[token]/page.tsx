@@ -6,7 +6,8 @@ import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import { TokenIcon } from "@/components/TokenIcon";
 import { useVaultCreators } from "@/lib/useVaultCreators";
-import { BASE_SEPOLIA_ID, CURATOR_ADDRESS, FACTORY } from "@/lib/addresses";
+import { BASE_SEPOLIA_ID, CURATOR_ADDRESS, DEPLOYMENTS } from "@/lib/addresses";
+import { useProtocolVersion } from "@/lib/version";
 import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
   useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
@@ -101,7 +102,8 @@ export default function VaultPage() {
   const { creatorsByVault } = useVaultCreators([addr]);
   const creatorInfo = creatorsByVault[addr.toLowerCase()];
   const creator = creatorInfo?.from;
-  const delegated = !!creatorInfo && creatorInfo.to.toLowerCase() !== FACTORY[BASE_SEPOLIA_ID].toLowerCase();
+  const { version } = useProtocolVersion();
+  const delegated = !!creatorInfo && creatorInfo.to.toLowerCase() !== DEPLOYMENTS[version][BASE_SEPOLIA_ID].factory.toLowerCase();
   const isCuratorVault = creator?.toLowerCase() === CURATOR_ADDRESS.toLowerCase();
 
   const amt = useMemo(() => parseUnits(amount, dec), [amount, dec]);
