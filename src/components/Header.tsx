@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectKitButton } from "connectkit";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
-import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS, PROTOCOL_VERSIONS, type ProtocolVersion } from "@/lib/addresses";
+import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS, preferredChainId, PROTOCOL_VERSIONS, type ProtocolVersion } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 
 const ETHEREUM_SEPOLIA_ID = 11155111;
@@ -23,6 +23,8 @@ function NetworkSelector() {
   const chainId = useChainId();
   const { isConnected } = useAccount();
   const { switchChain } = useSwitchChain();
+  const { version } = useProtocolVersion();
+  const target = preferredChainId(version); // mainnet once live, else Sepolia
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -39,7 +41,7 @@ function NetworkSelector() {
   if (!isConnected) return null;
 
   const onBaseSepolia = chainId === BASE_SEPOLIA_ID;
-  const wrong = !onBaseSepolia;
+  const wrong = chainId !== target;
 
   return (
     <div ref={ref} className="relative">
@@ -80,17 +82,34 @@ function NetworkSelector() {
             {onBaseSepolia && <span className="text-ice">✓</span>}
           </button>
 
-          {/* mainnet exists as a chain but holds no contracts until the audit clears */}
-          <div className="flex w-full cursor-not-allowed items-center gap-2 rounded-xl px-2 py-2.5 opacity-40">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#4da3ff" }} />
-            <span className="flex-1 text-sm font-semibold">Base Mainnet</span>
-            <span className="pill !px-2 !py-0.5 !text-[9px]">POST-AUDIT</span>
-          </div>
+          {/* Enabled only when the active version holds real mainnet contracts;
+              the zero-address placeholder stays unclickable. */}
+          {target === BASE_MAINNET_ID ? (
+            <button
+              onClick={() => {
+                if (chainId !== BASE_MAINNET_ID) switchChain({ chainId: BASE_MAINNET_ID });
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left transition hover:bg-white/5"
+            >
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#4da3ff" }} />
+              <span className="flex-1 text-sm font-semibold">Base Mainnet</span>
+              <span className="pill !px-2 !py-0.5 !text-[9px] text-ice">LIVE</span>
+              {chainId === BASE_MAINNET_ID && <span className="text-ice">✓</span>}
+            </button>
+          ) : (
+            <div className="flex w-full cursor-not-allowed items-center gap-2 rounded-xl px-2 py-2.5 opacity-40">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: "#4da3ff" }} />
+              <span className="flex-1 text-sm font-semibold">Base Mainnet</span>
+              <span className="pill !px-2 !py-0.5 !text-[9px]">POST-AUDIT</span>
+            </div>
+          )}
 
           {wrong && (
             <p className="px-2 pb-1 pt-2 text-[11px] leading-relaxed text-ink-faint">
-              Contracts live on Base Sepolia only — you&apos;re on{" "}
-              <span className="text-fee">{chainName(chainId)}</span>. Tap Base Sepolia
+              Contracts live on {target === BASE_MAINNET_ID ? "Base Mainnet" : "Base Sepolia"} only — you&apos;re on{" "}
+              <span className="text-fee">{chainName(chainId)}</span>. Tap{" "}
+              {target === BASE_MAINNET_ID ? "Base Mainnet" : "Base Sepolia"}
               to switch; your wallet will add the network if it&apos;s missing.
             </p>
           )}
@@ -141,7 +160,7 @@ export function Footer() {
 
   const versionButton = (v: ProtocolVersion, label: string, tag?: string) => {
     const active = version === v;
-    const legacy = DEPLOYMENTS[v][BASE_SEPOLIA_ID].status === "legacy";
+    const legacy = DEPLOYMENTS[v][preferredChainId(v)].status === "legacy";
     return (
       <button
         key={v}

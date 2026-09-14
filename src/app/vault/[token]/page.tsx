@@ -6,7 +6,7 @@ import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import { TokenIcon } from "@/components/TokenIcon";
 import { useVaultCreators } from "@/lib/useVaultCreators";
-import { BASE_SEPOLIA_ID, CURATOR_ADDRESS, DEPLOYMENTS } from "@/lib/addresses";
+import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, CURATOR_ADDRESS, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
@@ -103,7 +103,11 @@ export default function VaultPage() {
   const creatorInfo = creatorsByVault[addr.toLowerCase()];
   const creator = creatorInfo?.from;
   const { version } = useProtocolVersion();
-  const delegated = !!creatorInfo && creatorInfo.to.toLowerCase() !== DEPLOYMENTS[version][BASE_SEPOLIA_ID].factory.toLowerCase();
+  // Cross-chain display heuristic — the tx-gating itself happens via
+  // useFactoryAddress() (zero-address-safe per connected chain).
+  const displayFactory =
+    DEPLOYMENTS[version][BASE_MAINNET_ID]?.factory ?? DEPLOYMENTS[version][BASE_SEPOLIA_ID].factory;
+  const delegated = !!creatorInfo && creatorInfo.to.toLowerCase() !== displayFactory.toLowerCase();
   const isCuratorVault = creator?.toLowerCase() === CURATOR_ADDRESS.toLowerCase();
 
   const amt = useMemo(() => parseUnits(amount, dec), [amount, dec]);

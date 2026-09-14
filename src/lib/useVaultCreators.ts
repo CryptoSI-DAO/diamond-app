@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
-import { BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
+import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 
 const VAULT_CREATED = parseAbiItem(
@@ -61,8 +61,14 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
       try {
         const wanted = new Set(vaultAddresses.map((a) => a.toLowerCase()));
         const vaultTx = new Map<string, `0x${string}`>(); // vault -> VaultCreated tx hash
-        const factory = DEPLOYMENTS[version][BASE_SEPOLIA_ID].factory;
-        const deployBlock = DEPLOYMENTS[version][BASE_SEPOLIA_ID].deployBlock;
+        // Scan the CONNECTED chain's deployment; cross-chain fallback keeps
+        // the scan origin sane (deploy block) instead of block 0.
+        const cid = pc.chain.id;
+        const dep =
+          DEPLOYMENTS[version][cid] ??
+          DEPLOYMENTS[version][cid === BASE_MAINNET_ID ? BASE_SEPOLIA_ID : BASE_MAINNET_ID];
+        const factory = dep.factory;
+        const deployBlock = dep.deployBlock;
         const latest = await pc.getBlockNumber();
         for (let start = BigInt(deployBlock); start <= latest; start += BigInt(LOG_CHUNK)) {
           const end = start + BigInt(LOG_CHUNK - 1) > latest ? latest : start + BigInt(LOG_CHUNK - 1);

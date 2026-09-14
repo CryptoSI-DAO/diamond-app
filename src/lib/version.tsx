@@ -2,8 +2,10 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import {
+  BASE_MAINNET_ID,
+  BASE_SEPOLIA_ID,
   DEFAULT_VERSION,
-  DEPLOYMENTS,
+  deploymentFor,
   PROTOCOL_VERSIONS,
   type Deployment,
   type ProtocolVersion,
@@ -26,8 +28,9 @@ function loadStored(): ProtocolVersion {
 
 type VersionContextValue = {
   version: ProtocolVersion;
+  /** Cross-chain display deployment (mainnet when live, else Sepolia).
+   *  For tx-building, always go through useFactoryAddress() / chainId gates. */
   deployment: Deployment;
-  /** Base Sepolia deployment for the active version (chainId-gated by callers). */
   setVersion: (v: ProtocolVersion) => void;
 };
 
@@ -51,7 +54,13 @@ export function ProtocolVersionProvider({ children }: { children: React.ReactNod
     }
   };
 
-  const deployment = DEPLOYMENTS[version][84532]; // Base Sepolia — only deployed chain
+  // Chain-aware resolution for cross-chain surfaces (protocol panel, footer
+  // toggle): show mainnet once the active version is live there, else
+  // Sepolia. Per-chain tx gating happens downstream via useChainId() —
+  // useFactoryAddress() serves the zero-address-safe deployment per chain.
+  const deployment =
+    deploymentFor(version, BASE_MAINNET_ID) ??
+    deploymentFor(version, BASE_SEPOLIA_ID)!; // invariant: every version has a Sepolia entry
 
   return (
     <VersionContext.Provider value={{ version, deployment, setVersion }}>

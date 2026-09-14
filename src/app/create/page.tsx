@@ -11,7 +11,8 @@ import {
 } from "wagmi";
 import { erc20Abi, factoryAbi, vaultAbi } from "@/lib/abis";
 import { errorToCopy } from "@/lib/errors";
-import { BASE_SEPOLIA_ID, CREATION_FEE_ETH } from "@/lib/addresses";
+import { BASE_MAINNET_ID, CREATION_FEE_ETH, preferredChainId } from "@/lib/addresses";
+import { useProtocolVersion } from "@/lib/version";
 import { fmtPct, shortAddr } from "@/lib/format";
 import { useFactoryAddress } from "@/lib/useVaultList";
 
@@ -29,7 +30,9 @@ export default function CreatePage() {
   const pc = usePublicClient();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
-  const wrongChain = configured && chainId !== BASE_SEPOLIA_ID;
+  const { version } = useProtocolVersion();
+  const target = preferredChainId(version); // mainnet once live, else Sepolia
+  const wrongChain = configured && chainId !== target;
   const [step, setStep] = useState(1);
   const [token, setToken] = useState("");
   const [symbol, setSymbol] = useState<string | null>(null);
@@ -291,10 +294,10 @@ export default function CreatePage() {
               )}
               {wrongChain && (
                 <button
-                  onClick={() => switchChain({ chainId: BASE_SEPOLIA_ID })}
+                  onClick={() => switchChain({ chainId: target })}
                   className="btn-primary w-full py-3 text-sm uppercase tracking-widest"
-                >
-                  Switch to Base Sepolia to deploy
+                  >
+                  Switch to {target === BASE_MAINNET_ID ? "Base Mainnet" : "Base Sepolia"} to deploy
                 </button>
               )}
               <div className="flex gap-3">

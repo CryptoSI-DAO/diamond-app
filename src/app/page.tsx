@@ -12,7 +12,7 @@ import {
   useBalance, useChainId, useSwitchChain,
 } from "wagmi";
 import {
-  BASE_SEPOLIA_ID, CREATION_FEE_ETH, CURATOR_ADDRESS,
+  BASE_MAINNET_ID, BASE_SEPOLIA_ID, CREATION_FEE_ETH, CURATOR_ADDRESS, preferredChainId,
 } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 
@@ -46,13 +46,13 @@ export default function ExplorePage() {
   const { version, deployment } = useProtocolVersion();
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
-  const onSepolia = chainId === BASE_SEPOLIA_ID;
-  const sepoliaFactory = deployment.factory;
+  const target = preferredChainId(version); // mainnet once live, else Sepolia
+  const onTarget = chainId === target;
 
   // creation fee Treasury balance = protocol fees earned to date
   const feeBalance = useBalance({
     address: deployment.feeCollector,
-    chainId: BASE_SEPOLIA_ID,
+    chainId: target,
   });
   const feeEth = feeBalance.data
     ? (Number(feeBalance.data.value) / 1e18).toFixed(3)
@@ -86,7 +86,11 @@ export default function ExplorePage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="font-display text-lg font-semibold">Protocol status</div>
             <span className="pill !text-[10px] text-ice">
-              {onSepolia ? `TESTNET — BASE SEPOLIA · ${version}` : `READ-ONLY — CONNECT TO SEPOLIA · ${version}`}
+              {onTarget
+                ? target === BASE_MAINNET_ID
+                  ? `MAINNET — BASE · ${version}`
+                  : `TESTNET — BASE SEPOLIA · ${version}`
+                : `READ-ONLY — CONNECT TO ${target === BASE_MAINNET_ID ? "BASE MAINNET" : "SEPOLIA"} · ${version}`}
             </span>
           </div>
 
@@ -94,12 +98,12 @@ export default function ExplorePage() {
             <div className="card-inner px-4 py-3">
               <div className="label">Factory</div>
               <a
-                href={`https://sepolia.basescan.org/address/${sepoliaFactory}`}
+                href={`https://${target === BASE_MAINNET_ID ? "" : "sepolia."}basescan.org/address/${deployment.factory}`}
                 target="_blank"
                 rel="noreferrer"
                 className="num mt-1 block text-sm text-ice hover:underline"
               >
-                {shortAddr(sepoliaFactory)} ↗
+                {shortAddr(deployment.factory)} ↗
               </a>
             </div>
             <div className="card-inner px-4 py-3">
@@ -141,12 +145,12 @@ export default function ExplorePage() {
             </a>
           </p>
 
-          {!onSepolia && (
+          {!onTarget && (
             <button
-              onClick={() => switchChain({ chainId: BASE_SEPOLIA_ID })}
+              onClick={() => switchChain({ chainId: target })}
               className="btn-primary mt-4 px-5 py-2 text-sm"
             >
-              Switch to Base Sepolia
+              Switch to {target === 845 ? "Base Mainnet" : "Base Sepolia"}
             </button>
           )}
         </section>

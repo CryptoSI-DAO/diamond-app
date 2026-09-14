@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
 import { vaultAbi } from "@/lib/abis";
-import { BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
+import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 
 const TAX_COLLECTED = parseAbiItem(
@@ -73,7 +73,14 @@ export function useGlobalStats(vaultAddresses: readonly `0x${string}`[]): Global
         setBurnTotal(burns);
 
         // 2) dividends — chunked log scan (all vaults per call)
-        const deployBlock = DEPLOYMENTS[version][BASE_SEPOLIA_ID].deployBlock;
+        // Scan the CONNECTED chain's deployment; a mainnet wallet before the
+        // mainnet registry fills falls back to Sepolia numbers rather than
+        // scanning from block 0.
+        const cid = pc.chain.id;
+        const dep =
+          DEPLOYMENTS[version][cid] ??
+          DEPLOYMENTS[version][cid === BASE_MAINNET_ID ? BASE_SEPOLIA_ID : BASE_MAINNET_ID];
+        const deployBlock = dep.deployBlock;
         const latest = await pc.getBlockNumber();
         let divs = 0n;
         for (let start = BigInt(deployBlock); start <= latest; start += BigInt(LOG_CHUNK)) {

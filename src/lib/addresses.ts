@@ -80,6 +80,24 @@ export const DEPLOYMENTS: Record<ProtocolVersion, Record<number, Deployment>> = 
 
 export const DEFAULT_VERSION: ProtocolVersion = "v1.3.0";
 
+/** Chains where the active version has a REAL deployment (non-zero factory).
+ *  Zero-address registry entries count as NOT deployed — the app must never
+ *  fire a tx at MAINNET_UNAVAILABLE placeholders. */
+export function deploymentFor(
+  version: ProtocolVersion,
+  chainId: number
+): Deployment | undefined {
+  const d = DEPLOYMENTS[version][chainId];
+  if (!d || d.factory === ZERO_ADDRESS) return undefined;
+  return d;
+}
+
+/** The chain the wrong-network nudge should point at: mainnet if the active
+ *  version is live there, else Sepolia. Single source for every switch target. */
+export function preferredChainId(version: ProtocolVersion): number {
+  return deploymentFor(version, BASE_MAINNET_ID) ? BASE_MAINNET_ID : BASE_SEPOLIA_ID;
+}
+
 export function isTestnet(chainId: number) {
   return chainId === BASE_SEPOLIA_ID;
 }
