@@ -11,7 +11,7 @@ import {
 } from "wagmi";
 import { erc20Abi, factoryAbi, vaultAbi } from "@/lib/abis";
 import { errorToCopy } from "@/lib/errors";
-import { BASE_MAINNET_ID, CREATION_FEE_ETH, preferredChainId } from "@/lib/addresses";
+import { BASE_MAINNET_ID, creationFeeEth, preferredChainId } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 import { fmtPct, shortAddr } from "@/lib/format";
 import { useFactoryAddress } from "@/lib/useVaultList";
@@ -33,6 +33,7 @@ export default function CreatePage() {
   const { version } = useProtocolVersion();
   const target = preferredChainId(version); // mainnet once live, else Sepolia
   const wrongChain = configured && chainId !== target;
+  const feeEth = creationFeeEth(chainId); // per-chain factory fee (v1.3.0: 0.001, v1.4.0: 0.004)
   const [step, setStep] = useState(1);
   const [token, setToken] = useState("");
   const [symbol, setSymbol] = useState<string | null>(null);
@@ -94,7 +95,7 @@ export default function CreatePage() {
         abi: factoryAbi,
         functionName: "createVault",
         args: [token as `0x${string}`, { entryTaxBps: FIXED_ENTRY_TAX_BPS, exitTaxBps: FIXED_EXIT_TAX_BPS, dividendShareBps: FIXED_DIV_SHARE_BPS, acceptFeesFromTransfer: FIXED_ACCEPT_FOT }],
-        value: BigInt(Math.round(Number(CREATION_FEE_ETH) * 1e18)),
+        value: BigInt(Math.round(Number(feeEth) * 1e18)),
       },
       {
         onSuccess: (hash: `0x${string}`) => {
@@ -165,7 +166,7 @@ export default function CreatePage() {
         <div className="label mb-2">Deploy</div>
         <h1 className="font-display text-3xl font-bold tracking-tight">Vault parameters</h1>
         <p className="mt-2 text-sm text-ink-dim">
-          Fine-tune friction dynamics. One-time factory fee {CREATION_FEE_ETH} ETH.
+          Fine-tune friction dynamics. One-time factory fee {feeEth} ETH.
         </p>
 
         {/* step rail */}
@@ -279,7 +280,7 @@ export default function CreatePage() {
                   <Row k="Dividend share" v={fmtPct(FIXED_DIV_SHARE_BPS)} />
                   <Row k="Fee-on-transfer" v="rejected (strict)" />
                   <div className="border-t border-line/50 pt-3">
-                    <Row k="Factory fee" v={`${CREATION_FEE_ETH} ETH`} accent />
+                    <Row k="Factory fee" v={`${feeEth} ETH`} accent />
                   </div>
                 </div>
                 <p className="mt-4 text-[11px] leading-relaxed text-ink-faint">

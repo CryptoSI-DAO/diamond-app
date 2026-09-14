@@ -12,7 +12,7 @@ import {
   useBalance, useChainId, useSwitchChain,
 } from "wagmi";
 import {
-  BASE_MAINNET_ID, BASE_SEPOLIA_ID, CREATION_FEE_ETH, CURATOR_ADDRESS, preferredChainId,
+  BASE_MAINNET_ID, BASE_SEPOLIA_ID, creationFeeEth, CURATOR_ADDRESS, preferredChainId,
 } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 
@@ -114,7 +114,7 @@ export default function ExplorePage() {
             </div>
             <div className="card-inner px-4 py-3">
               <div className="label">Creation fee</div>
-              <div className="num mt-1 text-lg font-bold">{CREATION_FEE_ETH} ETH</div>
+              <div className="num mt-1 text-lg font-bold">{creationFeeEth(chainId)} ETH</div>
             </div>
             <div className="card-inner px-4 py-3">
               <div className="label">Protocol fees earned</div>

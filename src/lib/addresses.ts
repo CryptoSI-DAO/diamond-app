@@ -102,7 +102,12 @@ export function isTestnet(chainId: number) {
   return chainId === BASE_SEPOLIA_ID;
 }
 
-export const CREATION_FEE_ETH = "0.001";
+/** Vault creation fee per chain, in ETH. Sepolia runs the immutable v1.3.0
+ *  factory (0.001); mainnet v1.4.0 ships 0.004. The tier (#28) waives the
+ *  fee entirely for CRDD members once wired. */
+export function creationFeeEth(chainId: number): "0.001" | "0.004" {
+  return chainId === BASE_SEPOLIA_ID ? "0.001" : "0.004";
+}
 
 /** Curator wallet for the Explore page's "Curated" tab. Only vaults whose
  *  VaultCreated tx was sent by this address (derived on-chain from logs, see
