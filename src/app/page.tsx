@@ -150,7 +150,7 @@ export default function ExplorePage() {
               onClick={() => switchChain({ chainId: target })}
               className="btn-primary mt-4 px-5 py-2 text-sm"
             >
-              Switch to {target === 845 ? "Base Mainnet" : "Base Sepolia"}
+              Switch to {target === 8453 ? "Base Mainnet" : "Base Sepolia"}
             </button>
           )}
         </section>

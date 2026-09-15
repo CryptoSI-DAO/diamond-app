@@ -561,7 +561,7 @@ export default function VaultPage() {
                     </div>
                     {s.tx && (
                       <a
-                        href={`https://${chainId === 845 ? "basescan" : "base-sepolia.blockscout"}.${chainId === 845 ? "org" : "com"}/tx/${s.tx}`}
+                        href={`https://${chainId === 8453 ? "basescan" : "base-sepolia.blockscout"}.${chainId === 8453 ? "org" : "com"}/tx/${s.tx}`}
                         target="_blank"
                         rel="noreferrer"
                         className="text-ice"

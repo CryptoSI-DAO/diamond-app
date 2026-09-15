@@ -10,7 +10,7 @@
 // app never calls it directly.
 
 export const BASE_SEPOLIA_ID = 84532;
-export const BASE_MAINNET_ID = 845;
+export const BASE_MAINNET_ID = 8453;
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 
@@ -53,8 +53,11 @@ export const DEPLOYMENTS: Record<ProtocolVersion, Record<number, Deployment>> = 
     [BASE_MAINNET_ID]: {
       version: "v1.4.0",
       status: "current",
-      ...MAINNET_UNAVAILABLE,
-      auditLine: "mainnet deployment pending — launches with partner split + dormant CRDD tier",
+      implementation: "0x75a7Fee6e8c17F6A7C39136C69A869fe99961D94",
+      factory: "0x64BE13cE698684846Ae0642c1c63bb5eDE8F6929",
+      feeCollector: "0x0D48743923D8fcE041325F98B5Ce884a323f5499",
+      deployBlock: 51_343_897,
+      auditLine: "LIVE mainnet · self-audited & fixed same day (H-NEW-1) · 101/101 tests · Blockscout verified",
     },
   },
   // v1.3.0 — unclaimed-IOUs-fixed (dhp commit 234526d, deployments.json 2026-09-12)
@@ -96,9 +99,8 @@ export const DEPLOYMENTS: Record<ProtocolVersion, Record<number, Deployment>> = 
   },
 };
 
-// DEFAULT stays v1.3.0 until the v1.4.0 mainnet broadcast lands — the
-// launch-hour commit flips this to "v1.4.0" together with the addresses.
-export const DEFAULT_VERSION: ProtocolVersion = "v1.3.0";
+// v1.4.0 is LIVE on Base mainnet (deployed 2026-09-15, block 51_343_897).
+export const DEFAULT_VERSION: ProtocolVersion = "v1.4.0";
 
 /** Chains where the active version has a REAL deployment (non-zero factory).
  *  Zero-address registry entries count as NOT deployed — the app must never
