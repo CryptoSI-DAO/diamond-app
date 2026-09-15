@@ -7,8 +7,13 @@ import { vaultAbi } from "@/lib/abis";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 
-const TAX_COLLECTED = parseAbiItem(
+// v1.3.0: 5 fields · v1.4.0 (#29): 9 fields. Try active version's shape
+// first, fall back to the other — both read `.dividends` identically.
+const TAX_COLLECTED_V13 = parseAbiItem(
   "event TaxCollected(uint8 kind, uint256 gross, uint256 dividends, uint256 burned, uint256 protocolFee)"
+);
+const TAX_COLLECTED_V14 = parseAbiItem(
+  "event TaxCollected(uint8 kind, uint256 gross, uint256 dividendPortion, uint256 burnPortion, uint256 daoPortion, uint256 creatorPortion, uint256 creationPlatformPortion, uint256 usagePortion)"
 );
 
 /** Public nodes cap getLogs ranges — stay under it. */
@@ -85,13 +90,17 @@ export function useGlobalStats(vaultAddresses: readonly `0x${string}`[]): Global
         let divs = 0n;
         for (let start = BigInt(deployBlock); start <= latest; start += BigInt(LOG_CHUNK)) {
           const end = start + BigInt(LOG_CHUNK - 1) > latest ? latest : start + BigInt(LOG_CHUNK - 1);
-          const logs = await pc.getLogs({
-            address: [...vaultAddresses],
-            event: TAX_COLLECTED,
-            fromBlock: start,
-            toBlock: end,
-          });
-          for (const l of logs) divs += l.args.dividends ?? 0n;
+          // TaxCollected is emitted BY VAULTS (not the factory) — scan the
+          // vault addresses, decoding both version shapes.
+          const logs = (
+            await pc.getLogs({ address: [...vaultAddresses], event: version === "v1.4.0" ? TAX_COLLECTED_V14 : TAX_COLLECTED_V13, fromBlock: start, toBlock: end })
+          ).concat(
+            await pc.getLogs({ address: [...vaultAddresses], event: version === "v1.4.0" ? TAX_COLLECTED_V13 : TAX_COLLECTED_V14, fromBlock: start, toBlock: end })
+          );
+          for (const l of logs) {
+            const a = l.args as { dividends?: bigint; dividendPortion?: bigint };
+            divs += a.dividends ?? a.dividendPortion ?? 0n;
+          }
         }
         setDividendsTotal(divs);
       } catch (e) {

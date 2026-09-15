@@ -6,24 +6,28 @@ import { decodeEventLog } from "viem";
 import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import {
-  useChainId, usePublicClient, useReadContract, useReadContracts,
+  useAccount, useChainId, usePublicClient, useReadContract, useReadContracts,
   useSwitchChain, useWriteContract,
 } from "wagmi";
-import { erc20Abi, factoryAbi, vaultAbi } from "@/lib/abis";
+import { erc20Abi, factoryAbiFor, vaultAbi } from "@/lib/abis";
 import { errorToCopy } from "@/lib/errors";
-import { BASE_MAINNET_ID, creationFeeEth, preferredChainId } from "@/lib/addresses";
+import {
+  BASE_MAINNET_ID, creationFeeEth, preferredChainId, USAGE_PLATFORM_WALLET, ZERO_ADDRESS,
+} from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 import { fmtPct, shortAddr } from "@/lib/format";
 import { useFactoryAddress } from "@/lib/useVaultList";
 
 const isAddr = (s: string) => /^0x[a-fA-F0-9]{40}$/.test(s);
 
-// Fixed protocol parameters — as stated by the smart contract (DHPImplementation
-// test canon + landing economics). NOT user-configurable.
+// Fixed protocol parameters — enforced ON-CHAIN in v1.4.0 (#29: TaxConfig
+// deleted; every vault ships the 5/10/80 canon in strict FOT mode, and
+// createVault() takes no tax config at all). Remainder of each tax:
+// 10% burn · 4% DAO · 2% creator · 2% creation platform · 2% usage
+// platform (0x0 → DAO fallback).
 const FIXED_ENTRY_TAX_BPS = 500; // 5% on deposit
 const FIXED_EXIT_TAX_BPS = 1000; // 10% on withdraw
-const FIXED_DIV_SHARE_BPS = 8000; // 80% of tax → holders (deployed vault config — verified on-chain, both v1.2.2 vaults); remainder: 0.5% protocol fee, 19.5% burn
-const FIXED_ACCEPT_FOT = false; // strict: fee-on-transfer tokens rejected
+const FIXED_DIV_SHARE_BPS = 8000; // 80% of tax → holders (#29 canon)
 
 export default function CreatePage() {
   const { factory, configured } = useFactoryAddress();
@@ -31,9 +35,17 @@ export default function CreatePage() {
   const chainId = useChainId();
   const { switchChain } = useSwitchChain();
   const { version } = useProtocolVersion();
+  // v1.3.0 factories still speak TaxConfig; v1.4.0 takes partner wallets.
+  const factoryAbi = factoryAbiFor(version);
+  const account = useAccount();
   const target = preferredChainId(version); // mainnet once live, else Sepolia
   const wrongChain = configured && chainId !== target;
-  const feeEth = creationFeeEth(chainId); // per-chain factory fee (v1.3.0: 0.001, v1.4.0: 0.004)
+  const feeEth = creationFeeEth(version, chainId); // v1.3.0: 0.001 · v1.4.0: 0.004
+  // #29 attribution: creator = the connected wallet; creation platform =
+  // OUR platform wallet (USAGE_PLATFORM_WALLET), falling back to the
+  // user's own wallet while unset — never zero (factory validates non-zero).
+  const creationPlatformWallet =
+    USAGE_PLATFORM_WALLET !== ZERO_ADDRESS ? USAGE_PLATFORM_WALLET : account.address;
   const [step, setStep] = useState(1);
   const [token, setToken] = useState("");
   const [symbol, setSymbol] = useState<string | null>(null);
@@ -41,6 +53,7 @@ export default function CreatePage() {
   const [err, setErr] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [deployed, setDeployed] = useState<`0x${string}` | null>(null);
+  const canSubmit = configured && isAddr(token) && !!creationPlatformWallet;
 
   // token probe
   const tok = useReadContracts({
@@ -84,7 +97,7 @@ export default function CreatePage() {
   const w = useWriteContract();
 
   function submit() {
-    if (!configured || !isAddr(token)) return;
+    if (!canSubmit) return;
     setPhase("confirming");
     setErr(null);
     setTxHash(null);
@@ -94,7 +107,9 @@ export default function CreatePage() {
         address: factory,
         abi: factoryAbi,
         functionName: "createVault",
-        args: [token as `0x${string}`, { entryTaxBps: FIXED_ENTRY_TAX_BPS, exitTaxBps: FIXED_EXIT_TAX_BPS, dividendShareBps: FIXED_DIV_SHARE_BPS, acceptFeesFromTransfer: FIXED_ACCEPT_FOT }],
+        args: version === "v1.4.0"
+          ? [token as `0x${string}`, account.address!, creationPlatformWallet!]
+          : [token as `0x${string}`, { entryTaxBps: FIXED_ENTRY_TAX_BPS, exitTaxBps: FIXED_EXIT_TAX_BPS, dividendShareBps: FIXED_DIV_SHARE_BPS, acceptFeesFromTransfer: false }],
         value: BigInt(Math.round(Number(feeEth) * 1e18)),
       },
       {

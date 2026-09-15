@@ -114,7 +114,7 @@ export default function ExplorePage() {
             </div>
             <div className="card-inner px-4 py-3">
               <div className="label">Creation fee</div>
-              <div className="num mt-1 text-lg font-bold">{creationFeeEth(chainId)} ETH</div>
+              <div className="num mt-1 text-lg font-bold">{creationFeeEth(version, chainId)} ETH</div>
             </div>
             <div className="card-inner px-4 py-3">
               <div className="label">Protocol fees earned</div>

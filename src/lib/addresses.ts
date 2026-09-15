@@ -14,9 +14,9 @@ export const BASE_MAINNET_ID = 845;
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 
-export type ProtocolVersion = "v1.3.0" | "v1.2.2";
+export type ProtocolVersion = "v1.4.0" | "v1.3.0" | "v1.2.2";
 
-export const PROTOCOL_VERSIONS: ProtocolVersion[] = ["v1.3.0", "v1.2.2"];
+export const PROTOCOL_VERSIONS: ProtocolVersion[] = ["v1.4.0", "v1.3.0", "v1.2.2"];
 
 export type Deployment = {
   version: ProtocolVersion;
@@ -39,6 +39,24 @@ const MAINNET_UNAVAILABLE: Omit<Deployment, "version" | "status" | "auditLine"> 
 };
 
 export const DEPLOYMENTS: Record<ProtocolVersion, Record<number, Deployment>> = {
+  // v1.4.0 — mainnet launch candidate (dhp #28 tier + #29 partner split).
+  // Addresses land HERE the moment the real deploy broadcast happens; the
+  // zero-address skeleton keeps every UI gate (deploymentFor/preferredChain)
+  // honest until then. Tier launches dormant (crddToken = 0x0).
+  "v1.4.0": {
+    [BASE_SEPOLIA_ID]: {
+      version: "v1.4.0",
+      status: "current",
+      ...MAINNET_UNAVAILABLE,
+      auditLine: "v1.4.0 testnet deploy pending (97/97 tests · partner-split #29)",
+    },
+    [BASE_MAINNET_ID]: {
+      version: "v1.4.0",
+      status: "current",
+      ...MAINNET_UNAVAILABLE,
+      auditLine: "mainnet deployment pending — launches with partner split + dormant CRDD tier",
+    },
+  },
   // v1.3.0 — unclaimed-IOUs-fixed (dhp commit 234526d, deployments.json 2026-09-12)
   "v1.3.0": {
     [BASE_SEPOLIA_ID]: {
@@ -78,6 +96,8 @@ export const DEPLOYMENTS: Record<ProtocolVersion, Record<number, Deployment>> = 
   },
 };
 
+// DEFAULT stays v1.3.0 until the v1.4.0 mainnet broadcast lands — the
+// launch-hour commit flips this to "v1.4.0" together with the addresses.
 export const DEFAULT_VERSION: ProtocolVersion = "v1.3.0";
 
 /** Chains where the active version has a REAL deployment (non-zero factory).
@@ -102,10 +122,14 @@ export function isTestnet(chainId: number) {
   return chainId === BASE_SEPOLIA_ID;
 }
 
-/** Vault creation fee per chain, in ETH. Sepolia runs the immutable v1.3.0
- *  factory (0.001); mainnet v1.4.0 ships 0.004. The tier (#28) waives the
- *  fee entirely for CRDD members once wired. */
-export function creationFeeEth(chainId: number): "0.001" | "0.004" {
+/** Vault creation fee per (version, chain), in ETH. v1.3.0 factories are
+ *  immutable at 0.001 (Sepolia); v1.4.0 ships 0.004 (mainnet launch canon).
+ *  The tier (#28) waives the fee entirely for CRDD members once wired. */
+export function creationFeeEth(
+  version: ProtocolVersion,
+  chainId: number
+): "0.001" | "0.004" {
+  if (version === "v1.4.0") return "0.004";
   return chainId === BASE_SEPOLIA_ID ? "0.001" : "0.004";
 }
 
@@ -114,3 +138,9 @@ export function creationFeeEth(chainId: number): "0.001" | "0.004" {
  *  useVaultCreators) appear under curated. Until v2.0.0 ships on-chain
  *  endorsement registries, this constant IS the curation policy. */
 export const CURATOR_ADDRESS = "0x0B172a4E265AcF4c2E0aB238F63A44bf29bBd158" as `0x${string}`;
+
+/** #29 usage-platform wallet (earns 2% of every entry/exit tax, per tx).
+ *  Set to ZERO_ADDRESS = v1.4.0 deposit/withdraw flows use the plain
+ *  ERC-4626 calls (usage share routes to the DAO — headless-safe default).
+ *  Drop the real platform wallet here to switch flows to *WithPlatform. */
+export const USAGE_PLATFORM_WALLET = ZERO_ADDRESS;

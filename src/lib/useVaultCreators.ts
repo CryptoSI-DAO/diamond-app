@@ -6,8 +6,15 @@ import { parseAbiItem } from "viem";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 
-const VAULT_CREATED = parseAbiItem(
+// Event shapes differ per version: v1.3.0 emits (token, vault, entry, exit,
+// divShare); v1.4.0 (#29) emits (token, vault, creatorWallet indexed,
+// creationPlatformWallet). Scanning tries the ACTIVE version's shape first,
+// then falls back to the other — cheap and immune to mixed-version logs.
+const VAULT_CREATED_V13 = parseAbiItem(
   "event VaultCreated(address indexed token, address indexed vault, uint16 entryTaxBps, uint16 exitTaxBps, uint16 dividendShareBps)"
+);
+const VAULT_CREATED_V14 = parseAbiItem(
+  "event VaultCreated(address indexed token, address indexed vault, address indexed creatorWallet, address creationPlatformWallet)"
 );
 
 /** Public nodes cap getLogs ranges — stay under it (same as useGlobalStats). */
@@ -72,12 +79,13 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
         const latest = await pc.getBlockNumber();
         for (let start = BigInt(deployBlock); start <= latest; start += BigInt(LOG_CHUNK)) {
           const end = start + BigInt(LOG_CHUNK - 1) > latest ? latest : start + BigInt(LOG_CHUNK - 1);
-          const logs = await pc.getLogs({
-            address: factory,
-            event: VAULT_CREATED,
-            fromBlock: start,
-            toBlock: end,
-          });
+          // Active version's shape first, then the other shape (covers
+          // mixed-version logs and version toggles mid-session).
+          const logs = (
+            await pc.getLogs({ address: factory, event: version === "v1.4.0" ? VAULT_CREATED_V14 : VAULT_CREATED_V13, fromBlock: start, toBlock: end })
+          ).concat(
+            await pc.getLogs({ address: factory, event: version === "v1.4.0" ? VAULT_CREATED_V13 : VAULT_CREATED_V14, fromBlock: start, toBlock: end })
+          );
           for (const l of logs) {
             const vault = l.args.vault;
             if (!vault || !wanted.has(vault.toLowerCase())) continue;
