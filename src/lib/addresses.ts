@@ -15,6 +15,7 @@ export const ETHEREUM_MAINNET_ID = 1;
 export const BNB_MAINNET_ID = 56;
 export const ROBINHOOD_MAINNET_ID = 4663;
 export const ARC_TESTNET_ID = 5042002;
+export const ARC_MAINNET_ID = 5042;
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 
@@ -104,6 +105,16 @@ export const DEPLOYMENTS: Record<ProtocolVersion, Record<number, Deployment>> = 
       feeCollector: "0x0D48743923D8fcE041325F98B5Ce884a323f5499",
       deployBlock: 0, // testnet rehearsal — block scan not wired for Arc yet
       auditLine: "Arc testnet rehearsal · full smoke test passed on-chain (dhsSPX vault) · mainnet-ready",
+    },
+    // Arc mainnet (Circle, USDC-native gas) — deployed ON LAUNCH DAY, 2026-09-22.
+    [ARC_MAINNET_ID]: {
+      version: "v1.4.0",
+      status: "current",
+      implementation: "0x75a7Fee6e8c17F6A7C39136C69A869fe99961D94",
+      factory: "0x64BE13cE698684846Ae0642c1c63bb5eDE8F6929",
+      feeCollector: "0x0D48743923D8fcE041325F98B5Ce884a323f5499",
+      deployBlock: 22_191_425,
+      auditLine: "LIVE Arc mainnet (USDC gas) · launch-day deployment 2026-09-22 · read-backs verified on-chain",
     },
   },
   // v1.3.0 — unclaimed-IOUs-fixed (dhp commit 234526d, deployments.json 2026-09-12)
