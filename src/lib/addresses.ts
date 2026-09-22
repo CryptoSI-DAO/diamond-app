@@ -93,6 +93,18 @@ export const DEPLOYMENTS: Record<ProtocolVersion, Record<number, Deployment>> = 
       deployBlock: 69_646_575,
       auditLine: "LIVE Robinhood Chain (Arbitrum Orbit L2) · multichain expansion 2026-09-22 · read-backs verified on-chain",
     },
+    // Arc testnet (Circle) — USDC-native gas chain. Dress-rehearsal deployment:
+    // full suite + on-chain smoke test (vault lifecycle: deposit → dividend →
+    // claim → redeem) executed 2026-09-22. Ready to mirror at Arc mainnet launch.
+    [ARC_TESTNET_ID]: {
+      version: "v1.4.0",
+      status: "current",
+      implementation: "0x75a7Fee6e8c17F6A7C39136C69A869fe99961D94",
+      factory: "0x64BE13cE698684846Ae0642c1c63bb5eDE8F6929",
+      feeCollector: "0x0D48743923D8fcE041325F98B5Ce884a323f5499",
+      deployBlock: 0, // testnet rehearsal — block scan not wired for Arc yet
+      auditLine: "Arc testnet rehearsal · full smoke test passed on-chain (dhsSPX vault) · mainnet-ready",
+    },
   },
   // v1.3.0 — unclaimed-IOUs-fixed (dhp commit 234526d, deployments.json 2026-09-12)
   "v1.3.0": {
