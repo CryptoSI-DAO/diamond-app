@@ -11,6 +11,10 @@
 
 export const BASE_SEPOLIA_ID = 84532;
 export const BASE_MAINNET_ID = 8453;
+export const ETHEREUM_MAINNET_ID = 1;
+export const BNB_MAINNET_ID = 56;
+export const ROBINHOOD_MAINNET_ID = 4663;
+export const ARC_TESTNET_ID = 5042002;
 
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as `0x${string}`;
 
@@ -58,6 +62,36 @@ export const DEPLOYMENTS: Record<ProtocolVersion, Record<number, Deployment>> = 
       feeCollector: "0x0D48743923D8fcE041325F98B5Ce884a323f5499",
       deployBlock: 51_343_897,
       auditLine: "LIVE mainnet · self-audited & fixed same day (H-NEW-1) · 101/101 tests · Blockscout verified",
+    },
+    // 2026-09-22 multichain expansion — same deterministic addresses as Base
+    // (fresh nonce-0 deploys of identical bytecode). Treasury/curator carried
+    // over unchanged. Verification: explorer + raw eth_getCode/cast read-backs.
+    [ETHEREUM_MAINNET_ID]: {
+      version: "v1.4.0",
+      status: "current",
+      implementation: "0x75a7Fee6e8c17F6A7C39136C69A869fe99961D94",
+      factory: "0x64BE13cE698684846Ae0642c1c63bb5eDE8F6929",
+      feeCollector: "0x0D48743923D8fcE041325F98B5Ce884a323f5499",
+      deployBlock: 26_032_989,
+      auditLine: "LIVE Ethereum · multichain expansion 2026-09-22 · read-backs verified on-chain",
+    },
+    [BNB_MAINNET_ID]: {
+      version: "v1.4.0",
+      status: "current",
+      implementation: "0x75a7Fee6e8c17F6A7C39136C69A869fe99961D94",
+      factory: "0x64BE13cE698684846Ae0642c1c63bb5eDE8F6929",
+      feeCollector: "0x0D48743923D8fcE041325F98B5Ce884a323f5499",
+      deployBlock: 123_371_417,
+      auditLine: "LIVE BNB Chain · multichain expansion 2026-09-22 · read-backs verified on-chain",
+    },
+    [ROBINHOOD_MAINNET_ID]: {
+      version: "v1.4.0",
+      status: "current",
+      implementation: "0x75a7Fee6e8c17F6A7C39136C69A869fe99961D94",
+      factory: "0x64BE13cE698684846Ae0642c1c63bb5eDE8F6929",
+      feeCollector: "0x0D48743923D8fcE041325F98B5Ce884a323f5499",
+      deployBlock: 69_646_575,
+      auditLine: "LIVE Robinhood Chain (Arbitrum Orbit L2) · multichain expansion 2026-09-22 · read-backs verified on-chain",
     },
   },
   // v1.3.0 — unclaimed-IOUs-fixed (dhp commit 234526d, deployments.json 2026-09-12)
