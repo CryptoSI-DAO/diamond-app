@@ -1,7 +1,7 @@
 "use client";
 
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { base, baseSepolia } from "wagmi/chains";
+import { base, baseSepolia, mainnet, bsc, robinhood, arc, arcTestnet } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 import { ProtocolVersionProvider } from "@/lib/version";
@@ -10,10 +10,20 @@ import { ViewChainProvider } from "@/components/ViewChainProvider";
 
 const config = createConfig(
   getDefaultConfig({
-    chains: [baseSepolia, base], // testnet-first until mainnet audit clears
+    // Full registry: every chain the protocol lives on must be registered here,
+    // or ConnectKit's wallet menu and wagmi's switchChain refuse them (the
+    // "wallet can only connect to Base" bug). Mainnets first, Base default.
+    chains: [base, mainnet, bsc, robinhood, arc, baseSepolia, arcTestnet],
     transports: {
-      [baseSepolia.id]: http("https://sepolia.base.org"),
       [base.id]: http(),
+      [mainnet.id]: http(),
+      [bsc.id]: http(),
+      [robinhood.id]: http("https://rpc.mainnet.chain.robinhood.com"),
+      // Arc mainnet has NO public RPC yet (Circle-gated) — it stays listed so
+      // wallets that already have it can hold/switch; in-app reads there will
+      // stay empty until Circle publishes an endpoint. Arc testnet is public.
+      [arcTestnet.id]: http("https://rpc.testnet.arc.network"),
+      [baseSepolia.id]: http("https://sepolia.base.org"),
     },
     walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_ID ?? "0",
     appName: "Diamond Hands Protocol",
