@@ -78,7 +78,7 @@ export default function ExplorePage() {
             { tag: "MEMECOIN" },
             { tag: "COMMUNITY" },
           ].map((f) => (
-            <div key={f.tag} className="card-inner flex flex-col gap-2 px-5 py-5">
+            <div key={f.tag} className="card-inner featured-glow flex flex-col gap-2 px-5 py-5">
               <div className="flex items-center justify-between">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-card-3 text-sm text-ice">◆</span>
                 <span className="pill !px-2 !py-0.5 !text-[9px] text-ink-faint">COMING SOON</span>
