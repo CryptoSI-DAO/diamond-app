@@ -9,12 +9,13 @@ import { TokenIcon } from "@/components/TokenIcon";
 import { useGlobalStats } from "@/lib/useGlobalStats";
 import { fmtPct, fmtUnits, shortAddr } from "@/lib/format";
 import {
-  useBalance, useChainId, useSwitchChain,
+  useAccount, useBalance, useChainId, useSwitchChain,
 } from "wagmi";
 import {
-  BASE_MAINNET_ID, BASE_SEPOLIA_ID, creationFeeEth, CURATOR_ADDRESS, preferredChainId,
+  BASE_MAINNET_ID, chainLabel, creationFeeEth, CURATOR_ADDRESS, deploymentFor, explorerAddrUrl,
 } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
+import { useViewChain } from "@/components/ViewChainProvider";
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
@@ -44,15 +45,20 @@ export default function ExplorePage() {
 
   // ── Protocol panel state (independent of wallet connection) ──────────────
   const { version, deployment } = useProtocolVersion();
-  const chainId = useChainId();
+  const { viewChainId } = useViewChain();
+  const walletChainId = useChainId();
+  const { isConnected } = useAccount();
   const { switchChain } = useSwitchChain();
-  const target = preferredChainId(version); // mainnet once live, else Sepolia
-  const onTarget = chainId === target;
+  const wrongWalletChain = isConnected && walletChainId !== viewChainId;
+  const connectedOnView = isConnected && walletChainId === viewChainId;
+  const viewDeployment =
+    deploymentFor(version, viewChainId) ?? deployment; // view chain's contracts (registry-guaranteed)
+  const onBase = viewChainId === BASE_MAINNET_ID;
 
-  // creation fee Treasury balance = protocol fees earned to date
+  // creation fee Treasury balance = protocol fees earned to date (view chain)
   const feeBalance = useBalance({
-    address: deployment.feeCollector,
-    chainId: target,
+    address: viewDeployment.feeCollector,
+    chainId: viewChainId,
   });
   const feeEth = feeBalance.data
     ? (Number(feeBalance.data.value) / 1e18).toFixed(3)
@@ -86,11 +92,11 @@ export default function ExplorePage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="font-display text-lg font-semibold">Protocol status</div>
             <span className="pill !text-[10px] text-ice">
-              {onTarget
-                ? target === BASE_MAINNET_ID
-                  ? `MAINNET — BASE · ${version}`
-                  : `TESTNET — BASE SEPOLIA · ${version}`
-                : `READ-ONLY — CONNECT TO ${target === BASE_MAINNET_ID ? "BASE MAINNET" : "SEPOLIA"} · ${version}`}
+              {connectedOnView
+                ? `${onBase ? "MAINNET — BASE" : `MAINNET — ${chainLabel(viewChainId).toUpperCase()}`} · ${version}`
+                : wrongWalletChain
+                  ? `VIEWING ${chainLabel(viewChainId).toUpperCase()} — WALLET ON ${chainLabel(walletChainId).toUpperCase()}`
+                  : `READ-ONLY — BROWSING ${chainLabel(viewChainId).toUpperCase()} · ${version}`}
             </span>
           </div>
 
@@ -98,12 +104,12 @@ export default function ExplorePage() {
             <div className="card-inner px-4 py-3">
               <div className="label">Factory</div>
               <a
-                href={`https://${target === BASE_MAINNET_ID ? "" : "sepolia."}basescan.org/address/${deployment.factory}`}
+                href={explorerAddrUrl(viewChainId, viewDeployment.factory)}
                 target="_blank"
                 rel="noreferrer"
                 className="num mt-1 block text-sm text-ice hover:underline"
               >
-                {shortAddr(deployment.factory)} ↗
+                {shortAddr(viewDeployment.factory)} ↗
               </a>
             </div>
             <div className="card-inner px-4 py-3">
@@ -114,7 +120,7 @@ export default function ExplorePage() {
             </div>
             <div className="card-inner px-4 py-3">
               <div className="label">Creation fee</div>
-              <div className="num mt-1 text-lg font-bold">{creationFeeEth(version, chainId)} ETH</div>
+              <div className="num mt-1 text-lg font-bold">{creationFeeEth(version, viewChainId)} ETH</div>
             </div>
             <div className="card-inner px-4 py-3">
               <div className="label">Protocol fees earned</div>
@@ -125,32 +131,32 @@ export default function ExplorePage() {
           </div>
 
           <p className="mt-4 text-xs leading-relaxed text-ink-faint">
-            {deployment.auditLine} · implementation{" "}
+            {viewDeployment.auditLine} · implementation{" "}
             <a
-              href={`https://sepolia.basescan.org/address/${deployment.implementation}`}
+              href={explorerAddrUrl(viewChainId, viewDeployment.implementation)}
               target="_blank"
               rel="noreferrer"
               className="text-ice hover:underline"
             >
-              {shortAddr(deployment.implementation)} ↗
+              {shortAddr(viewDeployment.implementation)} ↗
             </a>{" "}
             · fee collector{" "}
             <a
-              href={`https://sepolia.basescan.org/address/${deployment.feeCollector}`}
+              href={explorerAddrUrl(viewChainId, viewDeployment.feeCollector)}
               target="_blank"
               rel="noreferrer"
               className="text-ice hover:underline"
             >
-              {shortAddr(deployment.feeCollector)} ↗
+              {shortAddr(viewDeployment.feeCollector)} ↗
             </a>
           </p>
 
-          {!onTarget && (
+          {wrongWalletChain && (
             <button
-              onClick={() => switchChain({ chainId: target })}
+              onClick={() => switchChain({ chainId: viewChainId })}
               className="btn-primary mt-4 px-5 py-2 text-sm"
             >
-              Switch to {target === 8453 ? "Base Mainnet" : "Base Sepolia"}
+              Switch wallet to {chainLabel(viewChainId)}
             </button>
           )}
         </section>

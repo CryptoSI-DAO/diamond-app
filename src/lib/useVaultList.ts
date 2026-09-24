@@ -1,10 +1,10 @@
 "use client";
 
 import { useReadContract, useReadContracts } from "wagmi";
-import { useAccount, useChainId } from "wagmi";
 import { erc20Abi, factoryAbi, vaultAbi } from "@/lib/abis";
 import { DEPLOYMENTS, ZERO_ADDRESS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
+import { useViewChain } from "@/components/ViewChainProvider";
 
 export type VaultSummary = {
   address: `0x${string}`;
@@ -19,10 +19,11 @@ export type VaultSummary = {
 };
 
 export function useFactoryAddress() {
-  const chainId = useChainId();
+  const viewChainId = useViewChain().viewChainId;
   const { version } = useProtocolVersion();
-  // Mainnet stays unconfigured until the audit clears (zero address in the registry).
-  const addr = DEPLOYMENTS[version][chainId]?.factory ?? ZERO_ADDRESS;
+  // Reads follow the VIEW chain (browsable without a wallet); zero-address
+  // entries stay unconfigured so the UI never fires txs at placeholders.
+  const addr = DEPLOYMENTS[version][viewChainId]?.factory ?? ZERO_ADDRESS;
   const configured = !!addr && addr !== ZERO_ADDRESS;
   return { factory: addr, configured };
 }

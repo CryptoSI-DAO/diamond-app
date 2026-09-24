@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 import { ProtocolVersionProvider } from "@/lib/version";
 import { ThemeProvider, useTheme } from "@/components/ThemeProvider";
+import { ViewChainProvider } from "@/components/ViewChainProvider";
 
 const config = createConfig(
   getDefaultConfig({
@@ -37,13 +38,15 @@ function ThemedConnectKit({ children }: { children: React.ReactNode }) {
 export function Web3Provider({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
-      <WagmiProvider config={config}>
-        <QueryClientProvider client={queryClient}>
-          <ThemedConnectKit>
-            <ProtocolVersionProvider>{children}</ProtocolVersionProvider>
-          </ThemedConnectKit>
-        </QueryClientProvider>
-      </WagmiProvider>
+      <ViewChainProvider>
+        <WagmiProvider config={config}>
+          <QueryClientProvider client={queryClient}>
+            <ThemedConnectKit>
+              <ProtocolVersionProvider>{children}</ProtocolVersionProvider>
+            </ThemedConnectKit>
+          </QueryClientProvider>
+        </WagmiProvider>
+      </ViewChainProvider>
     </ThemeProvider>
   );
 }

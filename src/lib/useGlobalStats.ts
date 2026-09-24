@@ -6,6 +6,7 @@ import { parseAbiItem } from "viem";
 import { vaultAbi } from "@/lib/abis";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
+import { useViewChain } from "@/components/ViewChainProvider";
 
 // v1.3.0: 5 fields · v1.4.0 (#29): 9 fields. Try active version's shape
 // first, fall back to the other — both read `.dividends` identically.
@@ -36,7 +37,8 @@ export type GlobalStats = {
  *   factory's deploy block (node caps ranges at 10k blocks)
  */
 export function useGlobalStats(vaultAddresses: readonly `0x${string}`[]): GlobalStats {
-  const pc = usePublicClient();
+  const { viewChainId } = useViewChain();
+  const pc = usePublicClient({ chainId: viewChainId });
   const { version } = useProtocolVersion();
   const [burnTotal, setBurnTotal] = useState<bigint | null>(null);
   const [dividendsTotal, setDividendsTotal] = useState<bigint | null>(null);
@@ -112,7 +114,7 @@ export function useGlobalStats(vaultAddresses: readonly `0x${string}`[]): Global
     })();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runKey, !!pc, version]);
+  }, [runKey, !!pc, version, viewChainId]);
 
   return { burnTotal, dividendsTotal, loading, error };
 }

@@ -178,7 +178,65 @@ export function preferredChainId(version: ProtocolVersion): number {
 }
 
 export function isTestnet(chainId: number) {
-  return chainId === BASE_SEPOLIA_ID;
+  return chainId === BASE_SEPOLIA_ID || chainId === ARC_TESTNET_ID;
+}
+
+/** Chains where the ACTIVE version is really deployed (non-zero factory),
+ *  ordered for the network selector: Base first (default view), Ethereum,
+ *  BNB, Robinhood, Arc, then any testnets. Zero-address placeholders
+ *  (MAINNET_UNAVAILABLE) are never offered. */
+export function deployedChainIds(version: ProtocolVersion): number[] {
+  const mainnetOrder = [BASE_MAINNET_ID, ETHEREUM_MAINNET_ID, BNB_MAINNET_ID, ROBINHOOD_MAINNET_ID, ARC_MAINNET_ID];
+  const testnetOrder = [BASE_SEPOLIA_ID, ARC_TESTNET_ID];
+  return [...mainnetOrder, ...testnetOrder].filter((id) => {
+    const d = DEPLOYMENTS[version][id];
+    return !!d && d.factory !== ZERO_ADDRESS;
+  });
+}
+
+/** DEFAULT VIEW CHAIN — a fresh visitor lands on Base vaults, wallet or not. */
+export const DEFAULT_CHAIN_ID = BASE_MAINNET_ID;
+
+/** Canonical display names — single source for selector, nudges, page copy. */
+export function chainLabel(id: number): string {
+  switch (id) {
+    case BASE_MAINNET_ID: return "Base";
+    case ETHEREUM_MAINNET_ID: return "Ethereum";
+    case BNB_MAINNET_ID: return "BNB Chain";
+    case ROBINHOOD_MAINNET_ID: return "Robinhood Chain";
+    case ARC_MAINNET_ID: return "Arc";
+    case BASE_SEPOLIA_ID: return "Base Sepolia";
+    case ARC_TESTNET_ID: return "Arc Testnet";
+    default: return `Chain ${id}`;
+  }
+}
+
+/** Explorer URLs per chain — Blockscout where the chain ships one, official
+ *  explorers otherwise. Used for factory/vault/tx links across the app. */
+export function explorerAddrUrl(chainId: number, addr: string): string {
+  switch (chainId) {
+    case BASE_MAINNET_ID: return `https://basescan.org/address/${addr}`;
+    case BASE_SEPOLIA_ID: return `https://sepolia.basescan.org/address/${addr}`;
+    case ETHEREUM_MAINNET_ID: return `https://etherscan.io/address/${addr}`;
+    case BNB_MAINNET_ID: return `https://bscscan.com/address/${addr}`;
+    case ROBINHOOD_MAINNET_ID: return `https://robinscan.io/address/${addr}`;
+    case ARC_MAINNET_ID: return `https://explorer.arc.io/address/${addr}`;
+    case ARC_TESTNET_ID: return `https://testnet.arcscan.app/address/${addr}`;
+    default: return `https://basescan.org/address/${addr}`;
+  }
+}
+
+export function explorerTxUrl(chainId: number, tx: string): string {
+  switch (chainId) {
+    case BASE_MAINNET_ID: return `https://basescan.org/tx/${tx}`;
+    case BASE_SEPOLIA_ID: return `https://sepolia.basescan.org/tx/${tx}`;
+    case ETHEREUM_MAINNET_ID: return `https://etherscan.io/tx/${tx}`;
+    case BNB_MAINNET_ID: return `https://bscscan.com/tx/${tx}`;
+    case ROBINHOOD_MAINNET_ID: return `https://robinscan.io/tx/${tx}`;
+    case ARC_MAINNET_ID: return `https://explorer.arc.io/tx/${tx}`;
+    case ARC_TESTNET_ID: return `https://testnet.arcscan.app/tx/${tx}`;
+    default: return `https://basescan.org/tx/${tx}`;
+  }
 }
 
 /** Vault creation fee per (version, chain), in ETH. v1.3.0 factories are

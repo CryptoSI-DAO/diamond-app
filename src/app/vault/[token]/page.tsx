@@ -6,8 +6,9 @@ import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import { TokenIcon } from "@/components/TokenIcon";
 import { useVaultCreators } from "@/lib/useVaultCreators";
-import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, CURATOR_ADDRESS, DEPLOYMENTS } from "@/lib/addresses";
+import { BASE_SEPOLIA_ID, chainLabel, CURATOR_ADDRESS, DEPLOYMENTS, explorerTxUrl } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
+import { useViewChain } from "@/components/ViewChainProvider";
 import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
   useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
@@ -40,7 +41,13 @@ export default function VaultPage() {
   const addr = vault as `0x${string}`;
   const { address: user } = useAccount();
   const chainId = useChainId();
-  const pc = usePublicClient();
+  const { viewChainId } = useViewChain();
+  const pc = usePublicClient({ chainId: viewChainId });
+  // Reads browse the VIEW chain; txs require the wallet ON it. Disconnected
+  // counts as "on view" — there's no wallet to disagree with the view.
+  const walletOnView = !user || chainId === viewChainId;
+  // wagmi v2: batch reads take chainId PER CONTRACT (no top-level chainId)
+  const vc = { chainId: viewChainId } as const;
 
   const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
@@ -58,16 +65,16 @@ export default function VaultPage() {
     allowFailure: true,
     query: { enabled: !!addr },
     contracts: [
-      { abi: vaultAbi, address: addr, functionName: "asset" },
-      { abi: vaultAbi, address: addr, functionName: "totalAssets" },
-      { abi: vaultAbi, address: addr, functionName: "totalSupply" },
-      { abi: vaultAbi, address: addr, functionName: "totalBurned" },
-      { abi: vaultAbi, address: addr, functionName: "entryTaxBps" },
-      { abi: vaultAbi, address: addr, functionName: "exitTaxBps" },
-      { abi: vaultAbi, address: addr, functionName: "dividendShareBps" },
-      { abi: vaultAbi, address: addr, functionName: "totalDividendsDistributed" },
-      { abi: vaultAbi, address: addr, functionName: "balanceOf", args: [user ?? ZERO] },
-      { abi: vaultAbi, address: addr, functionName: "rewards", args: [user ?? ZERO] },
+      { abi: vaultAbi, address: addr, functionName: "asset", ...vc },
+      { abi: vaultAbi, address: addr, functionName: "totalAssets", ...vc },
+      { abi: vaultAbi, address: addr, functionName: "totalSupply", ...vc },
+      { abi: vaultAbi, address: addr, functionName: "totalBurned", ...vc },
+      { abi: vaultAbi, address: addr, functionName: "entryTaxBps", ...vc },
+      { abi: vaultAbi, address: addr, functionName: "exitTaxBps", ...vc },
+      { abi: vaultAbi, address: addr, functionName: "dividendShareBps", ...vc },
+      { abi: vaultAbi, address: addr, functionName: "totalDividendsDistributed", ...vc },
+      { abi: vaultAbi, address: addr, functionName: "balanceOf", args: [user ?? ZERO], ...vc },
+      { abi: vaultAbi, address: addr, functionName: "rewards", args: [user ?? ZERO], ...vc },
     ] as const,
   });
 
@@ -86,10 +93,10 @@ export default function VaultPage() {
     allowFailure: true,
     query: { enabled: !!assetAddr },
     contracts: [
-      { abi: erc20Abi, address: assetAddr!, functionName: "symbol" },
-      { abi: erc20Abi, address: assetAddr!, functionName: "decimals" },
-      { abi: erc20Abi, address: assetAddr!, functionName: "balanceOf", args: [user ?? ZERO] },
-      { abi: erc20Abi, address: assetAddr!, functionName: "allowance", args: [user ?? ZERO, addr] },
+      { abi: erc20Abi, address: assetAddr!, functionName: "symbol", ...vc },
+      { abi: erc20Abi, address: assetAddr!, functionName: "decimals", ...vc },
+      { abi: erc20Abi, address: assetAddr!, functionName: "balanceOf", args: [user ?? ZERO], ...vc },
+      { abi: erc20Abi, address: assetAddr!, functionName: "allowance", args: [user ?? ZERO, addr], ...vc },
     ] as const,
   });
 
@@ -106,7 +113,7 @@ export default function VaultPage() {
   // Cross-chain display heuristic — the tx-gating itself happens via
   // useFactoryAddress() (zero-address-safe per connected chain).
   const displayFactory =
-    DEPLOYMENTS[version][BASE_MAINNET_ID]?.factory ?? DEPLOYMENTS[version][BASE_SEPOLIA_ID].factory;
+    DEPLOYMENTS[version][viewChainId]?.factory ?? DEPLOYMENTS[version][BASE_SEPOLIA_ID].factory;
   const delegated = !!creatorInfo && creatorInfo.to.toLowerCase() !== displayFactory.toLowerCase();
   const isCuratorVault = creator?.toLowerCase() === CURATOR_ADDRESS.toLowerCase();
 
@@ -114,6 +121,7 @@ export default function VaultPage() {
   const valid = amt > 0n;
 
   const preview = useReadContract({
+    chainId: viewChainId,
     abi: vaultAbi,
     address: addr,
     functionName: tab === "deposit" ? "previewDeposit" : "previewRedeem",
@@ -154,6 +162,7 @@ export default function VaultPage() {
   }, [pc, addr]);
 
   useWatchContractEvent({
+    chainId: viewChainId,
     address: addr,
     abi: vaultAbi,
     eventName: "TaxCollected",
@@ -452,11 +461,13 @@ export default function VaultPage() {
 
             <button
               onClick={go}
-              disabled={!user || !valid || busy || phase !== "idle"}
+              disabled={!user || !walletOnView || !valid || busy || phase !== "idle"}
               className="btn-primary mt-5 w-full py-4 text-sm uppercase tracking-widest"
             >
               {!user
                 ? "Connect wallet to continue"
+                : !walletOnView
+                ? `Switch wallet to ${chainLabel(viewChainId)} to transact`
                 : busy
                 ? "Working…"
                 : needsApprove
@@ -529,7 +540,7 @@ export default function VaultPage() {
                   />
                   <button
                     onClick={doClaim}
-                    disabled={!user || myRewards === 0n || claim.isPending || claimRct.isLoading}
+                    disabled={!user || !walletOnView || myRewards === 0n || claim.isPending || claimRct.isLoading}
                     className="btn-primary flex-1 py-2.5 text-xs uppercase tracking-widest disabled:opacity-40"
                   >
                     Claim dividends
@@ -561,7 +572,7 @@ export default function VaultPage() {
                     </div>
                     {s.tx && (
                       <a
-                        href={`https://${chainId === 8453 ? "basescan" : "base-sepolia.blockscout"}.${chainId === 8453 ? "org" : "com"}/tx/${s.tx}`}
+                        href={explorerTxUrl(viewChainId, s.tx)}
                         target="_blank"
                         rel="noreferrer"
                         className="text-ice"

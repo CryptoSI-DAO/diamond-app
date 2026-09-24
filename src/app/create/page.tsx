@@ -7,14 +7,15 @@ import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import {
   useAccount, useChainId, usePublicClient, useReadContract, useReadContracts,
-  useSwitchChain, useWriteContract,
+  useWriteContract,
 } from "wagmi";
 import { erc20Abi, factoryAbiFor, vaultAbi } from "@/lib/abis";
 import { errorToCopy } from "@/lib/errors";
 import {
-  BASE_MAINNET_ID, creationFeeEth, preferredChainId, USAGE_PLATFORM_WALLET, ZERO_ADDRESS,
+  chainLabel, creationFeeEth, USAGE_PLATFORM_WALLET, ZERO_ADDRESS,
 } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
+import { useViewChain } from "@/components/ViewChainProvider";
 import { fmtPct, shortAddr } from "@/lib/format";
 import { useFactoryAddress } from "@/lib/useVaultList";
 
@@ -31,16 +32,16 @@ const FIXED_DIV_SHARE_BPS = 8000; // 80% of tax → holders (#29 canon)
 
 export default function CreatePage() {
   const { factory, configured } = useFactoryAddress();
-  const pc = usePublicClient();
+  const { viewChainId } = useViewChain();
+  const pc = usePublicClient({ chainId: viewChainId });
   const chainId = useChainId();
-  const { switchChain } = useSwitchChain();
   const { version } = useProtocolVersion();
   // v1.3.0 factories still speak TaxConfig; v1.4.0 takes partner wallets.
   const factoryAbi = factoryAbiFor(version);
   const account = useAccount();
-  const target = preferredChainId(version); // mainnet once live, else Sepolia
-  const wrongChain = configured && chainId !== target;
-  const feeEth = creationFeeEth(version, chainId); // v1.3.0: 0.001 · v1.4.0: 0.004
+  // tx gate: wallet must sit ON the chain being viewed
+  const wrongChain = configured && !!account.address && chainId !== viewChainId;
+  const feeEth = creationFeeEth(version, viewChainId); // v1.3.0: 0.001 · v1.4.0: 0.004
   // #29 attribution: creator = the connected wallet; creation platform =
   // OUR platform wallet (USAGE_PLATFORM_WALLET), falling back to the
   // user's own wallet while unset — never zero (factory validates non-zero).
@@ -54,34 +55,37 @@ export default function CreatePage() {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [deployed, setDeployed] = useState<`0x${string}` | null>(null);
   const canSubmit = configured && isAddr(token) && !!creationPlatformWallet;
+  // wagmi v2: batch reads take chainId PER CONTRACT (no top-level chainId)
+  const vc = { chainId: viewChainId } as const;
 
-  // token probe
+  // token probe (view chain — the vault will live where you're browsing)
   const tok = useReadContracts({
     allowFailure: true,
     query: { enabled: isAddr(token) },
     contracts: [
-      { abi: erc20Abi, address: token as `0x${string}`, functionName: "decimals" },
-      { abi: erc20Abi, address: token as `0x${string}`, functionName: "symbol" },
+      { abi: erc20Abi, address: token as `0x${string}`, functionName: "decimals", ...vc },
+      { abi: erc20Abi, address: token as `0x${string}`, functionName: "symbol", ...vc },
     ] as const,
   });
   const dec = tok.data?.[0]?.result as number | undefined;
   const sym = tok.data?.[1]?.result as string | undefined;
 
-  // already-vaulted check
+  // already-vaulted check (view chain)
   const count = useReadContract({
+    chainId: viewChainId,
     abi: factoryAbi, address: configured ? factory : undefined, functionName: "vaultCount",
   });
   const n = count.data ? Number(count.data) : 0;
   const addrs = useReadContracts({
     allowFailure: false, query: { enabled: n > 0 },
     contracts: Array.from({ length: n }, (_, i) => ({
-      abi: factoryAbi, address: factory!, functionName: "allVaultsAt", args: [BigInt(i)] as const,
+      abi: factoryAbi, address: factory!, functionName: "allVaultsAt", args: [BigInt(i)], ...vc,
     })),
   });
   const vAddrs = (addrs.data ?? []) as unknown as readonly `0x${string}`[];
   const assets = useReadContracts({
     allowFailure: true, query: { enabled: vAddrs.length > 0 && isAddr(token) },
-    contracts: vAddrs.map((a) => ({ abi: vaultAbi, address: a, functionName: "asset" }) as const),
+    contracts: vAddrs.map((a) => ({ abi: vaultAbi, address: a, functionName: "asset", ...vc }) as const),
   });
   const alreadyVaulted = useMemo(() => {
     if (!isAddr(token)) return false;
@@ -309,12 +313,11 @@ export default function CreatePage() {
                 </p>
               )}
               {wrongChain && (
-                <button
-                  onClick={() => switchChain({ chainId: target })}
-                  className="btn-primary w-full py-3 text-sm uppercase tracking-widest"
-                  >
-                  Switch to {target === BASE_MAINNET_ID ? "Base Mainnet" : "Base Sepolia"} to deploy
-                </button>
+                <p className="rounded-xl border border-fee/30 bg-fee/10 p-4 text-sm" style={{ color: "var(--color-fee)" }}>
+                  Your wallet is on {chainLabel(chainId)} but this vault will deploy on{" "}
+                  <span className="font-semibold">{chainLabel(viewChainId)}</span> — switch networks in the header
+                  selector to continue.
+                </p>
               )}
               <div className="flex gap-3">
                 <button onClick={() => setStep(2)} className="btn-ghost flex-1 py-3 text-xs uppercase tracking-widest">← Back</button>

@@ -5,6 +5,7 @@ import { usePublicClient } from "wagmi";
 import { parseAbiItem } from "viem";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
+import { useViewChain } from "@/components/ViewChainProvider";
 
 // Event shapes differ per version: v1.3.0 emits (token, vault, entry, exit,
 // divShare); v1.4.0 (#29) emits (token, vault, creatorWallet indexed,
@@ -45,7 +46,8 @@ export type VaultCreators = {
  * registries will replace this list, not change its shape.
  */
 export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): VaultCreators {
-  const pc = usePublicClient();
+  const { viewChainId } = useViewChain();
+  const pc = usePublicClient({ chainId: viewChainId });
   const { version } = useProtocolVersion();
   const [creatorsByVault, setCreatorsByVault] = useState<Record<string, VaultCreatorInfo>>({});
   const [loading, setLoading] = useState(false);
@@ -111,7 +113,7 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
         setLoading(false);
       }
     })();
-  }, [runKey, !!pc, version]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [runKey, !!pc, version, viewChainId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { creatorsByVault, loading, error };
 }
