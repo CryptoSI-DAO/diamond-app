@@ -7,6 +7,7 @@ import { ConnectKitButton } from "connectkit";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS, preferredChainId, PROTOCOL_VERSIONS, type ProtocolVersion } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const ETHEREUM_SEPOLIA_ID = 11155111;
 
@@ -147,6 +148,7 @@ export function Header() {
           {link("/create", "Deploy")}
         </nav>
         <div className="ml-auto flex items-center gap-3">
+          <ThemeToggle />
           <NetworkSelector />
           <ConnectKitButton />
         </div>

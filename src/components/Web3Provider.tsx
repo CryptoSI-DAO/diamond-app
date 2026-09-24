@@ -5,6 +5,7 @@ import { base, baseSepolia } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
 import { ProtocolVersionProvider } from "@/lib/version";
+import { ThemeProvider, useTheme } from "@/components/ThemeProvider";
 
 const config = createConfig(
   getDefaultConfig({
@@ -23,14 +24,26 @@ const config = createConfig(
 
 const queryClient = new QueryClient();
 
+/** ConnectKit's wallet modal follows the app theme; "auto" matches OS in dark mode. */
+function ThemedConnectKit({ children }: { children: React.ReactNode }) {
+  const { theme } = useTheme();
+  return (
+    <ConnectKitProvider theme="auto" mode={theme === "light" ? "light" : "auto"} options={{ initialChainId: 0 }}>
+      {children}
+    </ConnectKitProvider>
+  );
+}
+
 export function Web3Provider({ children }: { children: React.ReactNode }) {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <ConnectKitProvider theme="auto" options={{ initialChainId: 0 }}>
-          <ProtocolVersionProvider>{children}</ProtocolVersionProvider>
-        </ConnectKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <ThemeProvider>
+      <WagmiProvider config={config}>
+        <QueryClientProvider client={queryClient}>
+          <ThemedConnectKit>
+            <ProtocolVersionProvider>{children}</ProtocolVersionProvider>
+          </ThemedConnectKit>
+        </QueryClientProvider>
+      </WagmiProvider>
+    </ThemeProvider>
   );
 }
