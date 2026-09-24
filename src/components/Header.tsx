@@ -106,7 +106,7 @@ function NetworkSelector() {
               You&apos;re browsing <span className="font-semibold text-ink">{cur.name}</span> but your wallet is on{" "}
               <span className="text-fee">{wrongChainName}</span>.{" "}
               <button
-                onClick={() => switchChain({ chainId: viewChainId })}
+                onClick={() => switchChainAsync({ chainId: viewChainId }).catch(() => {})}
                 className="font-semibold text-ice underline underline-offset-2"
               >
                 Switch wallet to {cur.name}
