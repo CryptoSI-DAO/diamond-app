@@ -36,7 +36,7 @@ function NetworkSelector() {
   const { viewChainId, setViewChain } = useViewChain();
   const chainId = useChainId();
   const { isConnected } = useAccount();
-  const { switchChain } = useSwitchChain();
+  const { switchChainAsync } = useSwitchChain();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -81,6 +81,13 @@ function NetworkSelector() {
                 onClick={() => {
                   setViewChain(id);
                   setOpen(false);
+                  // Glue a connected wallet to the view: switch, and if the
+                  // wallet doesn't know the chain yet, wagmi auto-issues
+                  // wallet_addEthereumChain with the chain's RPC/explorer
+                  // metadata. Rejection (or failed add) just leaves the amber
+                  // mismatch state — browsing still works, manual switch
+                  // buttons remain as fallback.
+                  if (isConnected) switchChainAsync({ chainId: id }).catch(() => {});
                 }}
                 className={`flex w-full items-center gap-2 rounded-xl px-2 py-2.5 text-left transition hover:bg-white/5 ${active ? "cursor-default" : ""}`}
               >
