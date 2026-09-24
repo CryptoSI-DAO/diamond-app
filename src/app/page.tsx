@@ -68,15 +68,40 @@ export default function ExplorePage() {
     <div className="flex min-h-screen flex-col">
       <Header />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
-        {/* breadcrumb + title */}
+        {/* breadcrumb */}
         <div className="label mb-2">Vaults</div>
-        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-          The Conviction Registry
-        </h1>
-        <p className="mt-2 max-w-2xl text-sm text-ink-dim">
-          Immutable vaults on Base. Enter and pay the ingress tax; exit and pay the
-          friction. Either way — the diamonds get paid.
-        </p>
+
+        {/* featured vault slots — curated showcase; fills as vaults land */}
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { tag: "BLUE-CHIP" },
+            { tag: "MEMECOIN" },
+            { tag: "COMMUNITY" },
+          ].map((f) => (
+            <div key={f.tag} className="card-inner flex flex-col gap-2 px-5 py-5">
+              <div className="flex items-center justify-between">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-card-3 text-sm text-ice">◆</span>
+                <span className="pill !px-2 !py-0.5 !text-[9px] text-ink-faint">COMING SOON</span>
+              </div>
+              <div className="label !text-[10px] text-ice">{f.tag}</div>
+              <div className="text-sm text-ink-faint">Curated DHP vault</div>
+            </div>
+          ))}
+          <Link
+            href="/create"
+            className="card-inner group flex flex-col gap-2 px-5 py-5 transition hover:border-ice/60"
+            style={{ borderStyle: "dashed" }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-ice/10 text-sm text-ice">＋</span>
+            </div>
+            <div className="label !text-[10px] text-ice">Have your vault featured?</div>
+            <div className="text-sm text-ink-faint">
+              Deploy one and pitch the DAO curator.{" "}
+              <span className="text-ice transition group-hover:underline">Deploy yours →</span>
+            </div>
+          </Link>
+        </div>
 
         {/* global stats — the lore, live */}
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
