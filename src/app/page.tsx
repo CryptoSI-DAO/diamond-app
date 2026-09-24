@@ -130,27 +130,6 @@ export default function ExplorePage() {
             </div>
           </div>
 
-          <p className="mt-4 text-xs leading-relaxed text-ink-faint">
-            {viewDeployment.auditLine} · implementation{" "}
-            <a
-              href={explorerAddrUrl(viewChainId, viewDeployment.implementation)}
-              target="_blank"
-              rel="noreferrer"
-              className="text-ice hover:underline"
-            >
-              {shortAddr(viewDeployment.implementation)} ↗
-            </a>{" "}
-            · fee collector{" "}
-            <a
-              href={explorerAddrUrl(viewChainId, viewDeployment.feeCollector)}
-              target="_blank"
-              rel="noreferrer"
-              className="text-ice hover:underline"
-            >
-              {shortAddr(viewDeployment.feeCollector)} ↗
-            </a>
-          </p>
-
           {wrongWalletChain && (
             <button
               onClick={() => switchChain({ chainId: viewChainId })}
