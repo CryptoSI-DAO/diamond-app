@@ -6,7 +6,6 @@ import { Header, Footer } from "@/components/Header";
 import { useVaultList, type VaultSummary } from "@/lib/useVaultList";
 import { useVaultCreators } from "@/lib/useVaultCreators";
 import { TokenIcon } from "@/components/TokenIcon";
-import { useGlobalStats } from "@/lib/useGlobalStats";
 import { fmtPct, fmtUnits, shortAddr } from "@/lib/format";
 import {
   useAccount, useBalance, useChainId, useSwitchChain,
@@ -17,23 +16,10 @@ import {
 import { useProtocolVersion } from "@/lib/version";
 import { useViewChain } from "@/components/ViewChainProvider";
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="card-inner flex-1 px-5 py-4">
-      <div className="label">{label}</div>
-      <div className={`num mt-1 text-2xl font-bold ${accent ? "text-ice" : ""}`}>{value}</div>
-    </div>
-  );
-}
-
 export default function ExplorePage() {
   const { vaults, loading, configured } = useVaultList();
-  const totalTvl = vaults.reduce((s, v) => s + v.totalAssets, 0n);
   const vAddrs = useMemo(() => vaults.map((v) => v.address), [vaults]);
-  const { burnTotal, dividendsTotal, loading: statsLoading } = useGlobalStats(vAddrs);
   const { creatorsByVault } = useVaultCreators(vAddrs);
-  const dash = "—";
-
   // ── Curation toggle: default CURATED (vaults created by the CryptoSI-DAO
   // curator wallet), "All" shows everything. Derived from VaultCreated logs —
   // on-chain, not a hand-list. v2.0.0 adds self-curation registries.
@@ -101,15 +87,6 @@ export default function ExplorePage() {
               <span className="text-ice transition group-hover:underline">Deploy yours →</span>
             </div>
           </Link>
-        </div>
-
-        {/* global stats — the lore, live */}
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-5">
-          <Stat label="Tokens burned" value={statsLoading || !configured ? dash : burnTotal !== null ? `${fmtUnits(burnTotal, 18, 2)} ∑` : dash} accent />
-          <Stat label="Dividends paid" value={statsLoading || !configured ? dash : dividendsTotal !== null ? `${fmtUnits(dividendsTotal, 18, 2)} ∑` : dash} accent />
-          <Stat label="Vaults deployed" value={configured ? String(vaults.length) : dash} />
-          <Stat label="Total value locked" value={configured && !loading ? `${fmtUnits(totalTvl, 18, 2)} ∑` : dash} />
-          <Stat label="Security level" value="Zero-key" />
         </div>
 
         {/* protocol status panel — live contract facts, works without a wallet */}
