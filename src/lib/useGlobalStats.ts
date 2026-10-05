@@ -7,6 +7,7 @@ import { vaultAbi } from "@/lib/abis";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 import { useViewChain } from "@/components/ViewChainProvider";
+import { scanLogs, probeFirstEventBlock } from "@/lib/logScan";
 
 // v1.3.0: 5 fields · v1.4.0 (#29): 9 fields. Try active version's shape
 // first, fall back to the other — both read `.dividends` identically.
@@ -16,9 +17,6 @@ const TAX_COLLECTED_V13 = parseAbiItem(
 const TAX_COLLECTED_V14 = parseAbiItem(
   "event TaxCollected(uint8 kind, uint256 gross, uint256 dividendPortion, uint256 burnPortion, uint256 daoPortion, uint256 creatorPortion, uint256 creationPlatformPortion, uint256 usagePortion)"
 );
-
-/** Public nodes cap getLogs ranges — stay under it. */
-const LOG_CHUNK = 9000;
 
 export type GlobalStats = {
   /** Sum of every vault's totalBurned() — raw asset units across vaults. */
@@ -79,32 +77,50 @@ export function useGlobalStats(vaultAddresses: readonly `0x${string}`[]): Global
         }
         setBurnTotal(burns);
 
-        // 2) dividends — chunked log scan (all vaults per call)
-        // Scan the CONNECTED chain's deployment; a mainnet wallet before the
-        // mainnet registry fills falls back to Sepolia numbers rather than
-        // scanning from block 0.
+        // 2) dividends — adaptive chunked log scan (all vaults per call).
+        // 2026-10-05: Base's RPC caps getLogs at 2,000 blocks — the old fixed
+        // 9,000-chunk scan threw every chunk. Also: scanning from the factory
+        // deploy block is pointless while the protocol is young (no vaults →
+        // no TaxCollected events) — probe for the first event instead and
+        // scan from there. Falls back to the deploy block if the probe caps out.
         const cid = pc.chain.id;
         const dep =
           DEPLOYMENTS[version][cid] ??
           DEPLOYMENTS[version][cid === BASE_MAINNET_ID ? BASE_SEPOLIA_ID : BASE_MAINNET_ID];
         const deployBlock = dep.deployBlock;
         const latest = await pc.getBlockNumber();
-        let divs = 0n;
-        for (let start = BigInt(deployBlock); start <= latest; start += BigInt(LOG_CHUNK)) {
-          const end = start + BigInt(LOG_CHUNK - 1) > latest ? latest : start + BigInt(LOG_CHUNK - 1);
+        const primary = version === "v1.4.0" ? TAX_COLLECTED_V14 : TAX_COLLECTED_V13;
+        const secondary = version === "v1.4.0" ? TAX_COLLECTED_V13 : TAX_COLLECTED_V14;
+        const firstPrimary = await probeFirstEventBlock(pc, {
+          address: [...vaultAddresses], event: primary, fromBlock: BigInt(deployBlock), toBlock: latest,
+        });
+        const firstSecondary = firstPrimary === null
+          ? await probeFirstEventBlock(pc, {
+              address: [...vaultAddresses], event: secondary, fromBlock: BigInt(deployBlock), toBlock: latest,
+            })
+          : null;
+        // null probe = no events found within the probe budget → nothing to sum
+        if (firstPrimary === null && firstSecondary === null) {
+          setDividendsTotal(0n);
+        } else {
+          const scanFrom = [firstPrimary, firstSecondary]
+            .filter((b): b is bigint => b !== null)
+            .reduce((a, b) => (a < b ? a : b)) - 1n;
+          const from = scanFrom < BigInt(deployBlock) ? BigInt(deployBlock) : scanFrom;
+          let divs = 0n;
           // TaxCollected is emitted BY VAULTS (not the factory) — scan the
           // vault addresses, decoding both version shapes.
           const logs = (
-            await pc.getLogs({ address: [...vaultAddresses], event: version === "v1.4.0" ? TAX_COLLECTED_V14 : TAX_COLLECTED_V13, fromBlock: start, toBlock: end })
+            await scanLogs(pc, { address: [...vaultAddresses], event: primary, fromBlock: from, toBlock: latest })
           ).concat(
-            await pc.getLogs({ address: [...vaultAddresses], event: version === "v1.4.0" ? TAX_COLLECTED_V13 : TAX_COLLECTED_V14, fromBlock: start, toBlock: end })
+            await scanLogs(pc, { address: [...vaultAddresses], event: secondary, fromBlock: from, toBlock: latest })
           );
           for (const l of logs) {
             const a = l.args as { dividends?: bigint; dividendPortion?: bigint };
             divs += a.dividends ?? a.dividendPortion ?? 0n;
           }
+          setDividendsTotal(divs);
         }
-        setDividendsTotal(divs);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to scan chain events");
       } finally {
