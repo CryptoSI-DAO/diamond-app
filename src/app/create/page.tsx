@@ -16,6 +16,7 @@ import {
 } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 import { useViewChain } from "@/components/ViewChainProvider";
+import { SecurityNotice } from "@/components/SecurityNotice";
 import { fmtPct, shortAddr } from "@/lib/format";
 import { useFactoryAddress } from "@/lib/useVaultList";
 
@@ -306,6 +307,10 @@ export default function CreatePage() {
                   The deployed vault has zero admin keys. Config is immutable once
                   deployed — triple-check the numbers, diamond hands.
                 </p>
+                <SecurityNotice>
+                  Tx preview should read: <b>to {shortAddr(factory)}</b>, value{" "}
+                  {feeEth} ETH, method <b>createVault</b>. Anything else — cancel.
+                </SecurityNotice>
               </div>
               {err && (
                 <p className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm" style={{ color: "var(--color-danger)" }}>

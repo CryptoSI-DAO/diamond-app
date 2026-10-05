@@ -9,6 +9,7 @@ import { useVaultCreators } from "@/lib/useVaultCreators";
 import { BASE_SEPOLIA_ID, chainLabel, CURATOR_ADDRESS, DEPLOYMENTS, explorerTxUrl } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 import { useViewChain } from "@/components/ViewChainProvider";
+import { SecurityNotice } from "@/components/SecurityNotice";
 import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
   useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
@@ -501,6 +502,11 @@ export default function VaultPage() {
             <div className="mt-3 text-center text-[11px] tracking-wider text-ink-faint uppercase">
               Simulation runs before every signature
             </div>
+            <SecurityNotice>
+              Deposits sign to the vault you&apos;re viewing; approvals sign to
+              the same vault. The factory fee (0.004 ETH) only ever appears on
+              the create-vault flow.
+            </SecurityNotice>
           </section>
 
           {/* RIGHT: position + stream */}
