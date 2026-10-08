@@ -35,8 +35,15 @@ export function useVaultList(): {
   configured: boolean;
 } {
   const { factory, configured } = useFactoryAddress();
+  // 2026-10-08 CRITICAL: every read MUST pin the view chain. wagmi's
+  // createConfig sorts chains by id ASCENDING, so the unconnected default
+  // chain is Ethereum (1), not Base — unpinned reads hit the SAME deterministic
+  // factory on Ethereum, where vaultCount = 0 → all chains showed an empty
+  // vault list for every disconnected visitor (mobile included).
+  const { viewChainId } = useViewChain();
 
   const count = useReadContract({
+    chainId: viewChainId,
     abi: factoryAbi,
     address: configured ? factory : undefined,
     functionName: "vaultCount",
@@ -50,6 +57,7 @@ export function useVaultList(): {
     // existed on-chain. Failures now drop just that entry.
     allowFailure: true,
     contracts: Array.from({ length: n }, (_, i) => ({
+      chainId: viewChainId,
       abi: factoryAbi,
       address: factory,
       functionName: "allVaultsAt",
@@ -64,19 +72,19 @@ export function useVaultList(): {
   const meta = useReadContracts({
     allowFailure: true,
     contracts: vAddrs.flatMap((a) => [
-      { abi: erc20Abi, address: a, functionName: "symbol" },
-      { abi: erc20Abi, address: a, functionName: "decimals" },
-      { abi: vaultAbi, address: a, functionName: "asset" },
+      { chainId: viewChainId, abi: erc20Abi, address: a, functionName: "symbol" },
+      { chainId: viewChainId, abi: erc20Abi, address: a, functionName: "decimals" },
+      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "asset" },
     ] as const),
   });
 
   const stats = useReadContracts({
     allowFailure: true,
     contracts: vAddrs.flatMap((a) => [
-      { abi: vaultAbi, address: a, functionName: "totalAssets" },
-      { abi: vaultAbi, address: a, functionName: "totalSupply" },
-      { abi: vaultAbi, address: a, functionName: "entryTaxBps" },
-      { abi: vaultAbi, address: a, functionName: "exitTaxBps" },
+      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "totalAssets" },
+      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "totalSupply" },
+      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "entryTaxBps" },
+      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "exitTaxBps" },
     ] as const),
   });
 
