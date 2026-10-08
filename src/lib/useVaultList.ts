@@ -45,7 +45,10 @@ export function useVaultList(): {
   const n = count.data ? Number(count.data) : 0;
 
   const addresses = useReadContracts({
-    allowFailure: false,
+    // 2026-10-08: allowFailure=false meant ONE rate-limited/stale subcall
+    // rejected the whole batch → vault list silently empty while vaults
+    // existed on-chain. Failures now drop just that entry.
+    allowFailure: true,
     contracts: Array.from({ length: n }, (_, i) => ({
       abi: factoryAbi,
       address: factory,
@@ -54,7 +57,9 @@ export function useVaultList(): {
     })),
   });
 
-  const vAddrs = (addresses.data ?? []) as unknown as `0x${string}`[];
+  const vAddrs = (addresses.data ?? [])
+    .filter((r) => r.status === "success" && Boolean(r.result))
+    .map((r) => r.result as unknown as `0x${string}`);
 
   const meta = useReadContracts({
     allowFailure: true,

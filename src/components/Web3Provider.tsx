@@ -1,6 +1,7 @@
 "use client";
 
 import { WagmiProvider, createConfig, http } from "wagmi";
+import { fallback } from "viem";
 import { base, baseSepolia, mainnet, bsc, robinhood, arc, arcTestnet } from "wagmi/chains";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ConnectKitProvider, getDefaultConfig } from "connectkit";
@@ -15,7 +16,14 @@ const config = createConfig(
     // "wallet can only connect to Base" bug). Mainnets first, Base default.
     chains: [base, mainnet, bsc, robinhood, arc, baseSepolia, arcTestnet],
     transports: {
-      [base.id]: http(),
+      // 2026-10-08: Base's official RPC rate-limits/blocks anonymous clients —
+      // flaky reads made the vault list silently empty ("Deploy the first
+      // vault" on a chain WITH vaults). drpc primary (no 2k-block log cap
+      // either) with immediate batching, official RPC as fallback.
+      [base.id]: fallback([
+        http("https://base.drpc.org", { batch: { wait: 0 } }),
+        http(),
+      ], { rank: false }),
       [mainnet.id]: http(),
       [bsc.id]: http(),
       [robinhood.id]: http("https://rpc.mainnet.chain.robinhood.com"),
