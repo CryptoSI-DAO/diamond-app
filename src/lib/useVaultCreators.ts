@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePublicClient } from "wagmi";
+import { usePublicClient, useReadContracts } from "wagmi";
 import { parseAbiItem } from "viem";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
 import { useViewChain } from "@/components/ViewChainProvider";
 import { scanLogs } from "@/lib/logScan";
+import { vaultAbi } from "@/lib/abis";
 
 // Event shapes differ per version: v1.3.0 emits (token, vault, entry, exit,
 // divShare); v1.4.0 (#29) emits (token, vault, creatorWallet indexed,
-// creationPlatformWallet). Scanning tries the ACTIVE version's shape first,
-// then falls back to the other — cheap and immune to mixed-version logs.
+// creationPlatformWallet). Kept ONLY for the v1.3.0 legacy fallback scan —
+// v1.4.0 resolves creators from vault state, no logs needed (see below).
 const VAULT_CREATED_V13 = parseAbiItem(
   "event VaultCreated(address indexed token, address indexed vault, uint16 entryTaxBps, uint16 exitTaxBps, uint16 dividendShareBps)"
 );
@@ -30,43 +31,57 @@ export type VaultCreatorInfo = {
 };
 
 export type VaultCreators = {
-  /** vault address (lowercased) → submitter + call target of its VaultCreated tx */
+  /** vault address (lowercased) → creator wallet + creation call target */
   creatorsByVault: Record<string, VaultCreatorInfo>;
   loading: boolean;
   error: string | null;
 };
 
 /**
- * Derives each vault's creator from VaultCreated logs (the factory stores no
- * creator mapping; the VaultCreated tx sender IS the creator). One chunked
- * log scan from the factory deploy block, shared per page-load.
+ * Resolves each vault's creator wallet (drives the Curated filter).
  *
- * 2026-10-05: fixed for Base mainnet — the official RPC caps getLogs at a
- * 2,000-block range, so the old fixed 9,000-chunk scan threw on every chunk
- * and the Curated tab was permanently empty (treasury vaults by 0x0B17…d158
- * included). Now uses the adaptive scanner (lib/logScan.ts), which halves the
- * chunk on range-cap errors, and skips the receipt round-trip for v1.4.0 by
- * reading creatorWallet straight from the log.
+ * v1.4.0 (2026-10-08): `vaultCreator` is IMMUTABLE state in every vault —
+ * it routes the 2% creator tax share, so reading it is strictly MORE
+ * authoritative than the emit-time log. The old log scan issued ~1,000
+ * chunked eth_getLogs requests per page load on Base (~1M blocks @ 2k/chunk
+ * × two event shapes), got silently 429/400-throttled by the RPC, and left
+ * the Curated tab empty. One batched multicall over the (tiny) vault list
+ * replaces it. The scan path survives only for v1.3.0 legacy vaults, whose
+ * events carry no creator wallet and whose spans are small (Sepolia).
  */
 export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): VaultCreators {
   const { viewChainId } = useViewChain();
   const pc = usePublicClient({ chainId: viewChainId });
   const { version } = useProtocolVersion();
-  const [creatorsByVault, setCreatorsByVault] = useState<Record<string, VaultCreatorInfo>>({});
-  const [loading, setLoading] = useState(false);
+  const isV14 = version === "v1.4.0";
+
+  const creators = useReadContracts({
+    query: { enabled: isV14 && vaultAddresses.length > 0 },
+    allowFailure: true,
+    contracts: vaultAddresses.map((a) => ({
+      chainId: viewChainId,
+      abi: vaultAbi,
+      address: a,
+      functionName: "vaultCreator",
+    })),
+  });
+
+  const [scanCreators, setScanCreators] = useState<Record<string, VaultCreatorInfo>>({});
+  const [scanLoading, setScanLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const runKey = useMemo(() => vaultAddresses.join(","), [vaultAddresses]);
   const busy = useRef(false);
 
   useEffect(() => {
-    if (!pc || vaultAddresses.length === 0) {
-      setCreatorsByVault({});
+    if (isV14 || !pc || vaultAddresses.length === 0) {
+      setScanCreators({});
       setError(null);
+      setScanLoading(false);
       return;
     }
     if (busy.current) return;
     busy.current = true;
-    setLoading(true);
+    setScanLoading(true);
     setError(null);
 
     (async () => {
@@ -82,15 +97,16 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
         const deployBlock = dep.deployBlock;
         const latest = await pc.getBlockNumber();
 
-        // Active version's shape first, then the other (covers mixed-version
-        // logs and version toggles mid-session). scanLogs chunks adaptively.
-        const primary = version === "v1.4.0" ? VAULT_CREATED_V14 : VAULT_CREATED_V13;
-        const secondary = version === "v1.4.0" ? VAULT_CREATED_V13 : VAULT_CREATED_V14;
-        const logs = (
-          await scanLogs(pc, { address: factory, event: primary, fromBlock: BigInt(deployBlock), toBlock: latest })
-        ).concat(
-          await scanLogs(pc, { address: factory, event: secondary, fromBlock: BigInt(deployBlock), toBlock: latest })
-        );
+        // Legacy path: scan both shapes (v1.3.0 primary — the legacy deploys
+        // emit it; v1.4.0 secondary covers stray newer vaults). scanLogs
+        // chunks adaptively.
+        const logsV13 = await scanLogs(pc, { address: factory, event: VAULT_CREATED_V13, fromBlock: BigInt(deployBlock), toBlock: latest });
+        const logsV14 = await scanLogs(pc, { address: factory, event: VAULT_CREATED_V14, fromBlock: BigInt(deployBlock), toBlock: latest });
+        type AnyVaultCreatedLog = {
+          args?: { vault?: `0x${string}`; creatorWallet?: `0x${string}` };
+          transactionHash?: `0x${string}`;
+        };
+        const logs = [...logsV13, ...logsV14] as unknown as AnyVaultCreatedLog[];
 
         for (const l of logs) {
           const vault = l.args?.vault as `0x${string}` | undefined;
@@ -102,7 +118,6 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
         }
 
         // v1.3.0 events carry no creator — those need tx.from from receipts.
-        // v1.4.0 resolves from creatorWallet in the log, zero extra calls.
         const txInfo = new Map<string, { from: `0x${string}`; to: `0x${string}` }>();
         for (const [vault, hash] of vaultTx) {
           if (creatorFromLog.has(vault)) continue;
@@ -120,15 +135,33 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
           const info = txInfo.get(hash);
           if (info) map[vault] = info;
         }
-        setCreatorsByVault(map);
+        setScanCreators(map);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to scan VaultCreated events");
       } finally {
         busy.current = false;
-        setLoading(false);
+        setScanLoading(false);
       }
     })();
-  }, [runKey, !!pc, version, viewChainId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [runKey, pc, version, isV14, vaultAddresses]);
+
+  const creatorsByVault: Record<string, VaultCreatorInfo> = {};
+  let loading = false;
+
+  if (isV14) {
+    const dep = DEPLOYMENTS[version][viewChainId];
+    (creators.data ?? []).forEach((r, i) => {
+      const a = vaultAddresses[i];
+      if (!a || r.status !== "success") return;
+      const cw = r.result as unknown as `0x${string}` | undefined;
+      if (!cw || cw === ZERO_ADDRESS) return;
+      creatorsByVault[a.toLowerCase()] = { from: cw, to: dep?.factory ?? ZERO_ADDRESS };
+    });
+    loading = creators.isLoading;
+  } else {
+    Object.assign(creatorsByVault, scanCreators);
+    loading = scanLoading;
+  }
 
   return { creatorsByVault, loading, error };
 }
