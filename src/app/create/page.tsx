@@ -6,9 +6,9 @@ import { decodeEventLog } from "viem";
 import { Header, Footer } from "@/components/Header";
 import { TxModal, type TxPhase } from "@/components/TxModal";
 import {
-  useAccount, useChainId, usePublicClient, useReadContract, useReadContracts,
-  useWriteContract,
+  useAccount, useChainId, usePublicClient, useWriteContract,
 } from "wagmi";
+import { useChainReadContract, useChainReadContracts } from "@/lib/readHooks";
 import { erc20Abi, factoryAbiFor, vaultAbi } from "@/lib/abis";
 import { errorToCopy } from "@/lib/errors";
 import {
@@ -56,37 +56,34 @@ export default function CreatePage() {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [deployed, setDeployed] = useState<`0x${string}` | null>(null);
   const canSubmit = configured && isAddr(token) && !!creationPlatformWallet;
-  // wagmi v2: batch reads take chainId PER CONTRACT (no top-level chainId)
-  const vc = { chainId: viewChainId } as const;
-
   // token probe (view chain — the vault will live where you're browsing)
-  const tok = useReadContracts({
-    allowFailure: true,
+  const tok = useChainReadContracts({
     query: { enabled: isAddr(token) },
     contracts: [
-      { abi: erc20Abi, address: token as `0x${string}`, functionName: "decimals", ...vc },
-      { abi: erc20Abi, address: token as `0x${string}`, functionName: "symbol", ...vc },
+      { abi: erc20Abi, address: token as `0x${string}`, functionName: "decimals" },
+      { abi: erc20Abi, address: token as `0x${string}`, functionName: "symbol" },
     ] as const,
   });
   const dec = tok.data?.[0]?.result as number | undefined;
   const sym = tok.data?.[1]?.result as string | undefined;
 
   // already-vaulted check (view chain)
-  const count = useReadContract({
-    chainId: viewChainId,
+  const count = useChainReadContract({
     abi: factoryAbi, address: configured ? factory : undefined, functionName: "vaultCount",
   });
   const n = count.data ? Number(count.data) : 0;
-  const addrs = useReadContracts({
-    allowFailure: false, query: { enabled: n > 0 },
+  const addrs = useChainReadContracts({
+    // 2026-10-08 rule: never allowFailure:false — one throttled subcall
+    // used to reject the entire batch. Per-entry failure is forced.
+    query: { enabled: n > 0 },
     contracts: Array.from({ length: n }, (_, i) => ({
-      abi: factoryAbi, address: factory!, functionName: "allVaultsAt", args: [BigInt(i)], ...vc,
+      abi: factoryAbi, address: factory!, functionName: "allVaultsAt", args: [BigInt(i)],
     })),
   });
   const vAddrs = (addrs.data ?? []) as unknown as readonly `0x${string}`[];
-  const assets = useReadContracts({
-    allowFailure: true, query: { enabled: vAddrs.length > 0 && isAddr(token) },
-    contracts: vAddrs.map((a) => ({ abi: vaultAbi, address: a, functionName: "asset", ...vc }) as const),
+  const assets = useChainReadContracts({
+    query: { enabled: vAddrs.length > 0 && isAddr(token) },
+    contracts: vAddrs.map((a) => ({ abi: vaultAbi, address: a, functionName: "asset" }) as const),
   });
   const alreadyVaulted = useMemo(() => {
     if (!isAddr(token)) return false;

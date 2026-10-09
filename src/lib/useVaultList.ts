@@ -1,6 +1,9 @@
 "use client";
 
-import { useReadContract, useReadContracts } from "wagmi";
+import {
+  useChainReadContract,
+  useChainReadContracts,
+} from "@/lib/readHooks";
 import { erc20Abi, factoryAbi, vaultAbi } from "@/lib/abis";
 import { DEPLOYMENTS, ZERO_ADDRESS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
@@ -33,6 +36,8 @@ export function useVaultList(): {
   vaults: VaultSummary[];
   loading: boolean;
   configured: boolean;
+  /** N failed subcalls across this hook's reads — surface it (rule 3). */
+  readFailed: number;
 } {
   const { factory, configured } = useFactoryAddress();
   // 2026-10-08 CRITICAL: every read MUST pin the view chain. wagmi's
@@ -42,8 +47,7 @@ export function useVaultList(): {
   // vault list for every disconnected visitor (mobile included).
   const { viewChainId } = useViewChain();
 
-  const count = useReadContract({
-    chainId: viewChainId,
+  const count = useChainReadContract({
     abi: factoryAbi,
     address: configured ? factory : undefined,
     functionName: "vaultCount",
@@ -51,13 +55,11 @@ export function useVaultList(): {
 
   const n = count.data ? Number(count.data) : 0;
 
-  const addresses = useReadContracts({
+  const addresses = useChainReadContracts({
     // 2026-10-08: allowFailure=false meant ONE rate-limited/stale subcall
     // rejected the whole batch → vault list silently empty while vaults
-    // existed on-chain. Failures now drop just that entry.
-    allowFailure: true,
+    // existed on-chain. useChainReadContracts forces per-entry failure.
     contracts: Array.from({ length: n }, (_, i) => ({
-      chainId: viewChainId,
       abi: factoryAbi,
       address: factory,
       functionName: "allVaultsAt",
@@ -69,22 +71,20 @@ export function useVaultList(): {
     .filter((r) => r.status === "success" && Boolean(r.result))
     .map((r) => r.result as unknown as `0x${string}`);
 
-  const meta = useReadContracts({
-    allowFailure: true,
+  const meta = useChainReadContracts({
     contracts: vAddrs.flatMap((a) => [
-      { chainId: viewChainId, abi: erc20Abi, address: a, functionName: "symbol" },
-      { chainId: viewChainId, abi: erc20Abi, address: a, functionName: "decimals" },
-      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "asset" },
+      { abi: erc20Abi, address: a, functionName: "symbol" },
+      { abi: erc20Abi, address: a, functionName: "decimals" },
+      { abi: vaultAbi, address: a, functionName: "asset" },
     ] as const),
   });
 
-  const stats = useReadContracts({
-    allowFailure: true,
+  const stats = useChainReadContracts({
     contracts: vAddrs.flatMap((a) => [
-      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "totalAssets" },
-      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "totalSupply" },
-      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "entryTaxBps" },
-      { chainId: viewChainId, abi: vaultAbi, address: a, functionName: "exitTaxBps" },
+      { abi: vaultAbi, address: a, functionName: "totalAssets" },
+      { abi: vaultAbi, address: a, functionName: "totalSupply" },
+      { abi: vaultAbi, address: a, functionName: "entryTaxBps" },
+      { abi: vaultAbi, address: a, functionName: "exitTaxBps" },
     ] as const),
   });
 
@@ -114,5 +114,8 @@ export function useVaultList(): {
     })
     .filter((v): v is VaultSummary => v !== null);
 
-  return { vaults, loading, configured };
+  const readFailed =
+    count.failed + addresses.failed + meta.failed + stats.failed;
+
+  return { vaults, loading, configured, readFailed };
 }

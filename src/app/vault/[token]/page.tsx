@@ -12,8 +12,9 @@ import { useViewChain } from "@/components/ViewChainProvider";
 import { SecurityNotice } from "@/components/SecurityNotice";
 import {
   useAccount, useChainId, usePublicClient, useWatchContractEvent,
-  useReadContract, useReadContracts, useWaitForTransactionReceipt, useWriteContract,
+  useWaitForTransactionReceipt, useWriteContract,
 } from "wagmi";
+import { useChainReadContract, useChainReadContracts } from "@/lib/readHooks";
 import { parseAbiItem, decodeEventLog } from "viem";
 import { useQueryClient } from "@tanstack/react-query";
 import { erc20Abi, vaultAbi } from "@/lib/abis";
@@ -47,8 +48,6 @@ export default function VaultPage() {
   // Reads browse the VIEW chain; txs require the wallet ON it. Disconnected
   // counts as "on view" — there's no wallet to disagree with the view.
   const walletOnView = !user || chainId === viewChainId;
-  // wagmi v2: batch reads take chainId PER CONTRACT (no top-level chainId)
-  const vc = { chainId: viewChainId } as const;
 
   const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
@@ -62,20 +61,19 @@ export default function VaultPage() {
   const [modal, setModal] = useState<{ headline?: string; big?: string; unit?: string; rows?: [string, string][]; error?: string }>({});
   const [stream, setStream] = useState<StreamItem[]>([]);
 
-  const core = useReadContracts({
-    allowFailure: true,
+  const core = useChainReadContracts({
     query: { enabled: !!addr },
     contracts: [
-      { abi: vaultAbi, address: addr, functionName: "asset", ...vc },
-      { abi: vaultAbi, address: addr, functionName: "totalAssets", ...vc },
-      { abi: vaultAbi, address: addr, functionName: "totalSupply", ...vc },
-      { abi: vaultAbi, address: addr, functionName: "totalBurned", ...vc },
-      { abi: vaultAbi, address: addr, functionName: "entryTaxBps", ...vc },
-      { abi: vaultAbi, address: addr, functionName: "exitTaxBps", ...vc },
-      { abi: vaultAbi, address: addr, functionName: "dividendShareBps", ...vc },
-      { abi: vaultAbi, address: addr, functionName: "totalDividendsDistributed", ...vc },
-      { abi: vaultAbi, address: addr, functionName: "balanceOf", args: [user ?? ZERO], ...vc },
-      { abi: vaultAbi, address: addr, functionName: "rewards", args: [user ?? ZERO], ...vc },
+      { abi: vaultAbi, address: addr, functionName: "asset" },
+      { abi: vaultAbi, address: addr, functionName: "totalAssets" },
+      { abi: vaultAbi, address: addr, functionName: "totalSupply" },
+      { abi: vaultAbi, address: addr, functionName: "totalBurned" },
+      { abi: vaultAbi, address: addr, functionName: "entryTaxBps" },
+      { abi: vaultAbi, address: addr, functionName: "exitTaxBps" },
+      { abi: vaultAbi, address: addr, functionName: "dividendShareBps" },
+      { abi: vaultAbi, address: addr, functionName: "totalDividendsDistributed" },
+      { abi: vaultAbi, address: addr, functionName: "balanceOf", args: [user ?? ZERO] },
+      { abi: vaultAbi, address: addr, functionName: "rewards", args: [user ?? ZERO] },
     ] as const,
   });
 
@@ -90,14 +88,13 @@ export default function VaultPage() {
   const myShares = (core.data?.[8]?.result as bigint) ?? 0n;
   const myRewards = (core.data?.[9]?.result as bigint) ?? 0n;
 
-  const tok = useReadContracts({
-    allowFailure: true,
+  const tok = useChainReadContracts({
     query: { enabled: !!assetAddr },
     contracts: [
-      { abi: erc20Abi, address: assetAddr!, functionName: "symbol", ...vc },
-      { abi: erc20Abi, address: assetAddr!, functionName: "decimals", ...vc },
-      { abi: erc20Abi, address: assetAddr!, functionName: "balanceOf", args: [user ?? ZERO], ...vc },
-      { abi: erc20Abi, address: assetAddr!, functionName: "allowance", args: [user ?? ZERO, addr], ...vc },
+      { abi: erc20Abi, address: assetAddr!, functionName: "symbol" },
+      { abi: erc20Abi, address: assetAddr!, functionName: "decimals" },
+      { abi: erc20Abi, address: assetAddr!, functionName: "balanceOf", args: [user ?? ZERO] },
+      { abi: erc20Abi, address: assetAddr!, functionName: "allowance", args: [user ?? ZERO, addr] },
     ] as const,
   });
 
@@ -121,8 +118,7 @@ export default function VaultPage() {
   const amt = useMemo(() => parseUnits(amount, dec), [amount, dec]);
   const valid = amt > 0n;
 
-  const preview = useReadContract({
-    chainId: viewChainId,
+  const preview = useChainReadContract({
     abi: vaultAbi,
     address: addr,
     functionName: tab === "deposit" ? "previewDeposit" : "previewRedeem",

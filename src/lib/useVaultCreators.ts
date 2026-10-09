@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePublicClient, useReadContracts } from "wagmi";
+import { usePublicClient } from "wagmi";
+import { useChainReadContracts } from "@/lib/readHooks";
 import { parseAbiItem } from "viem";
 import { BASE_MAINNET_ID, BASE_SEPOLIA_ID, DEPLOYMENTS } from "@/lib/addresses";
 import { useProtocolVersion } from "@/lib/version";
@@ -55,11 +56,9 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
   const { version } = useProtocolVersion();
   const isV14 = version === "v1.4.0";
 
-  const creators = useReadContracts({
+  const creators = useChainReadContracts({
     query: { enabled: isV14 && vaultAddresses.length > 0 },
-    allowFailure: true,
     contracts: vaultAddresses.map((a) => ({
-      chainId: viewChainId,
       abi: vaultAbi,
       address: a,
       functionName: "vaultCreator",
