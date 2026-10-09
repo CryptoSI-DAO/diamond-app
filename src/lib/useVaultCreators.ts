@@ -73,10 +73,17 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
   const busy = useRef(false);
 
   useEffect(() => {
+    // 2026-10-09: functional updaters — setState with a FRESH {} / null on an
+    // unchanged value still re-renders, and this hook's caller feeds it a
+    // re-created array every render (useMemo keyed on useVaultList's per-render
+    // `vaults`). deps[+fresh array] → effect → setState({}) → re-render →
+    // fresh array → ∞. That render storm stalled EVERY Next Link transition
+    // from the home page (buttons "not working"). The updater-form no-ops
+    // when nothing changed, breaking the loop; runKey value-keys the array.
     if (isV14 || !pc || vaultAddresses.length === 0) {
-      setScanCreators({});
-      setError(null);
-      setScanLoading(false);
+      setScanCreators((prev) => (Object.keys(prev).length ? {} : prev));
+      setError((prev) => (prev === null ? prev : null));
+      setScanLoading((prev) => (prev ? false : prev));
       return;
     }
     if (busy.current) return;
@@ -143,7 +150,10 @@ export function useVaultCreators(vaultAddresses: readonly `0x${string}`[]): Vaul
         setScanLoading(false);
       }
     })();
-  }, [runKey, pc, version, isV14, vaultAddresses]);
+    // deps: runKey VALUE-keys vaultAddresses (the array identity changes every
+    // render — putting the array itself in deps re-armed the loop above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runKey, pc, version, isV14]);
 
   const creatorsByVault: Record<string, VaultCreatorInfo> = {};
   let loading = false;
