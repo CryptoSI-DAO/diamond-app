@@ -202,8 +202,11 @@ export function Footer() {
         </div>
         <span>Protocol status: immutable</span>
         <span>Security level: zero-key</span>
-        <a href="https://cryptosi-dao.github.io/diamond-landing/" className="hover:text-ice" target="_blank" rel="noreferrer">
+        <a href="https://dhp.cryptosidao.org" className="hover:text-ice" target="_blank" rel="noreferrer">
           Lore ↗
+        </a>
+        <a href="https://docs.dhp.cryptosidao.org" className="hover:text-ice" target="_blank" rel="noreferrer">
+          Docs ↗
         </a>
         <a href="https://github.com/CryptoSI-DAO/diamond-hands-protocol" className="hover:text-ice" target="_blank" rel="noreferrer">
           Contracts ↗
